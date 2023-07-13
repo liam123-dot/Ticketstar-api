@@ -1,0 +1,381 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  Ticketstar
+
+  Sample SAM Template for Ticketstar
+
+# More info about Globals: https://github.com/awslabs/serverless-application-model/blob/master/docs/globals.rst
+Globals:
+  Function:
+    Timeout: 10
+    MemorySize: 128
+
+Resources:
+  GetAllFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/search/
+      Handler: GetAll.lambda_handler
+      Runtime: python3.9
+      Architectures:
+        - arm64
+      Events:
+        Ticketstar:
+          Type: Api
+          Properties:
+            Path: /search/GetAll
+            Method: get
+
+  GetOrganiserEventsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/search/
+      Handler: GetOrganiserEvents.lambda_handler
+      Runtime: python3.9
+      Architectures:
+        - arm64
+      Events:
+        Ticketstar:
+          Type: Api
+          Properties:
+            Path: /search/GetOrganiserEvents
+            Method: get
+
+  GetVenueEventsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/search/
+      Handler: GetVenueEvents.lambda_handler
+      Runtime: python3.9
+      Architectures:
+        - arm64
+      Events:
+        Ticketstar:
+          Type: Api
+          Properties:
+            Path: /search/GetVenueEvents
+            Method: get
+
+  GetEventFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/GetEvent/
+      Handler: GetEvent.lambda_handler
+      Runtime: python3.9
+      Architectures:
+        - arm64
+      Events:
+        Ticketstar:
+          Type: Api
+          Properties:
+            Path: /GetEvent
+            Method: get
+
+  GetTicketBidsAsksFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/GetEvent/
+      Handler: GetTicketBidsAsks.lambda_handler
+      Runtime: python3.9
+      Architectures:
+        - arm64
+      Events:
+        Ticketstar:
+          Type: Api
+          Properties:
+            Path: /GetTicketBidsAsks
+            Method: get
+
+  GetAsksFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/Asks/
+      Handler: GetAsks.lambda_handler
+      Runtime: python3.9
+      Architectures:
+        - arm64
+      Events:
+        Ticketstar:
+          Type: Api
+          Properties:
+            Path: /Asks
+            Method: Get
+
+  PostAskFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/Asks/
+      Handler: PostAsk.lambda_handler
+      Runtime: python3.9
+      Architectures:
+        - arm64
+      Events:
+        Ticketstar:
+          Type: Api
+          Properties:
+            Path: /Asks
+            Method: post
+
+  PutAskFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/Asks/
+      Handler: PutAsk.lambda_handler
+      Runtime: python3.9
+      Architectures:
+        - arm64
+      Events:
+        Ticketstar:
+          Type: Api
+          Properties:
+            Path: /Asks
+            Method: put
+
+  DeleteAskFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/Asks/
+      Handler: DeleteAsk.lambda_handler
+      Runtime: python3.9
+      Architectures:
+        - arm64
+      Events:
+        Ticketstar:
+          Type: Api
+          Properties:
+            Path: /Asks
+            Method: delete
+
+  ReserveAskFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/Asks/Reserve
+      Handler: ReserveAsk.lambda_handler
+      Runtime: python3.9
+      Architectures:
+        - arm64
+      Events:
+        Ticketstar:
+          Type: Api
+          Properties:
+            Path: /Asks/Reserve
+            Method: put
+
+  DeleteAskReserveFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/Asks/Reserve
+      Handler: DeleteAskReserve.lambda_handler
+      Runtime: python3.9
+      Architectures:
+        - arm64
+      Events:
+        Ticketstar:
+          Type: Api
+          Properties:
+            Path: /Asks/Reserve
+            Method: delete
+
+  FulfillAskFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/Asks
+      Handler: FulfillAsk.lambda_handler
+      Runtime: python3.9
+      Architectures:
+        - arm64
+      Events:
+        Ticketstar:
+          Type: Api
+          Properties:
+            Path: /Asks/Fulfill
+            Method: put
+
+  SignUpFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/Authentication/
+      Handler: SignUp.lambda_handler
+      Runtime: python3.9
+      Policies:
+        - AmazonCognitoPowerUser
+      Architectures:
+        - arm64
+      Events:
+        Ticketstar:
+          Type: Api
+          Properties:
+            Path: /SignUp
+            Method: post
+      Environment:
+        Variables:
+          USER_POOL_ID: eu-west-2_4o6b90A5T
+          CLIENT_ID: 1ehc0rh9dcug5djlopnrgfv5bq
+          CLIENT_SECRET: 54hisqq3lf6rips7nu2orsjl6mr9jtog5effghc0189sro83bop
+
+  SignInFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/Authentication/
+      Handler: SignIn.lambda_handler
+      Runtime: python3.9
+      Policies:
+        - AmazonCognitoPowerUser
+      Architectures:
+        - arm64
+      Events:
+        Ticketstar:
+          Type: Api
+          Properties:
+            Path: /SignIn
+            Method: post
+      Environment:
+        Variables:
+          USER_POOL_ID: eu-west-2_4o6b90A5T
+          CLIENT_ID: 1ehc0rh9dcug5djlopnrgfv5bq
+          CLIENT_SECRET: 54hisqq3lf6rips7nu2orsjl6mr9jtog5effghc0189sro83bop
+
+  VerifyConfirmationCodeFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/Authentication/
+      Handler: VerifyConfirmationCode.lambda_handler
+      Runtime: python3.9
+      Policies:
+        - AmazonCognitoPowerUser
+      Architectures:
+        - arm64
+      Events:
+        Ticketstar:
+          Type: Api
+          Properties:
+            Path: /VerifyConfirmationCode
+            Method: post
+      Environment:
+        Variables:
+          USER_POOL_ID: eu-west-2_4o6b90A5T
+          CLIENT_ID: 1ehc0rh9dcug5djlopnrgfv5bq
+          CLIENT_SECRET: 54hisqq3lf6rips7nu2orsjl6mr9jtog5effghc0189sro83bop
+
+  PaymentSheetFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/Payments
+      Handler: PaymentSheet.lambda_handler
+      Runtime: python3.9
+      Architectures:
+        - arm64
+      Events:
+        Ticketstar:
+          Type: Api
+          Properties:
+            Path: /Payment/payment-sheet
+            Method: post
+
+  GetPurchasesFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/Asks/Purchases
+      Handler: GetPurchases.lambda_handler
+      Runtime: python3.9
+      Architectures:
+        - arm64
+      Events:
+        Ticketstar:
+          Type: Api
+          Properties:
+            Path: /Purchases
+            Method: get
+
+  VerifyTransferUrlFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/Asks/TicketTransfers
+      Handler: VerifyTransferUrl.lambda_handler
+      Runtime: python3.9
+      Architectures:
+        - arm64
+      Events:
+        Ticketstar:
+          Type: Api
+          Properties:
+            Path: /VerifyTicketTransferUrl
+            Method: post
+
+  GetTransferUrlFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/Asks/TicketTransfers
+      Handler: GetTransferUrl.lambda_handler
+      Runtime: python3.9
+      Architectures:
+        - arm64
+      Events:
+        Ticketstar:
+          Type: Api
+          Properties:
+            Path: /GetTransferUrl
+            Method: get
+
+  TestLayerFunction:
+    Type: AWS::Serverless::LayerVersion
+    Properties:
+      ContentUri: layers/DatabaseLayer
+      CompatibleRuntimes:
+        - python3.9
+
+  TestFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/
+      Handler: test_function.lambda_handler
+      Runtime: python3.9
+      Layers:
+        - !Ref TestLayerFunction
+      Architectures:
+        - arm64
+      Events:
+        Ticketstar:
+          Type: Api
+          Properties:
+            Path: /test_function
+            Method: get
+
+Outputs:
+  TicketstarApi:
+    Description: "API Gateway endpoint URL for Prod stage for Hello World function"
+    Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/hello/"
+
+  getAllFunction:
+    Description: "search query function"
+    Value: !GetAtt GetAllFunction.Arn
+
+  GetEventFunction:
+    Description: "get event function"
+    Value: !GetAtt GetEventFunction.Arn
+
+  GetOrganiserEventsFunction:
+    Description: get organiser events function
+    Value: !GetAtt GetOrganiserEventsFunction.Arn
+
+  GetVenueEventsFunction:
+    Description: "get venue events function"
+    Value: !GetAtt GetVenueEventsFunction.Arn
+
+  SignInFunction:
+      Description: sign in function
+      Value: !GetAtt SignInFunction.Arn
+
+  SignUpFunction:
+    Description: sign up function
+    Value: !GetAtt SignUpFunction.Arn
+
+  VerifyConfirmationCodeFunction:
+    Description: verifies a confirmation code sent to email/sms
+    Value: !GetAtt VerifyConfirmationCodeFunction.Arn
+
+  PostAskFunction:
+    Value: !GetAtt PostAskFunction.Arn
+
+
