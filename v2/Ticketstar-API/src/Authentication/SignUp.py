@@ -40,7 +40,6 @@ import json
 import os
 import logging
 
-
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
@@ -54,7 +53,6 @@ CLIENT_SECRET = os.environ.get('CLIENT_SECRET')
 
 
 def lambda_handler(event, context):
-    logger.info('Processing event: %s', event)  # log the incoming event
     try:
         # Load the attributes and check whether all the required inputs are sent
         body = json.loads(event['body'])
@@ -64,7 +62,7 @@ def lambda_handler(event, context):
         last_name = body['lastName']
         phone_number = body['phoneNumber']
     except (InvalidBodyException, json.JSONDecodeError) as e:
-        logger.error('Error processing event: %s', e)  # log the error
+        logger.error('Error processing body. Error: %s, with event: %s', e, event)  # log the error
         return {
             'statusCode': 400,
             'body': json.dumps({
@@ -72,9 +70,18 @@ def lambda_handler(event, context):
                 'reason': 'InvalidBody' if isinstance(e, InvalidBodyException) else 'InvalidJson'
             })
         }
+    except Exception as e:
+        logger.error('Unknown error processing body. Error: %s, with event: %s', e, event)
+        return {
+            'statusCode': 400,
+            'body': json.dumps({
+                'message': str(e),
+                'reason': 'Unknown'
+            })
+        }
 
     try:
-        confirmation_method = submit_to_cognito(email, password, first_name, last_name, phone_number)
+        confirmation_method = submit_cognito_sign_up(email, password, first_name, last_name, phone_number)
 
         return {
             'statusCode': 200,
@@ -84,7 +91,7 @@ def lambda_handler(event, context):
             })
         }
     except SecretHashGenerationException:
-        logger.error('Error generating secret hash')  # log the error
+        logger.error('Error generating secret hash with event: %s', event)  # log the error
         return {
             'statusCode': 400,
             'body': json.dumps({
@@ -94,16 +101,17 @@ def lambda_handler(event, context):
         }
     except ClientError as e:
         error = e.response['Error']
-        logger.error('Client error: %s', error)  # log the error
-        if error['Code'] in ['UsernameExistsException', 'InvalidPasswordException']:
+        error_code = error['Code']
+        logger.error('Client error: %s, with event %s', error, event)  # log the error
+        if error_code in ['UsernameExistsException', 'InvalidPasswordException']:
             return {
                 'statusCode': 401,
                 'body': json.dumps({
                     'message': error['Message'],
-                    'reason': error['Code']
+                    'reason': error_code
                 })
             }
-        elif error['Code'] == 'CodeDeliveryFailureException':
+        elif error_code == 'CodeDeliveryFailureException':
             return {
                 'statusCode': 401,
                 'body': json.dumps({
@@ -111,26 +119,41 @@ def lambda_handler(event, context):
                     'reason': 'CodeDeliveryFailure'
                 })
             }
-        elif error['Code'] in ['InvalidEmailRoleAccessPolicyException', 'InvalidSmsRoleAccessPolicyException']:
+        elif error_code in ['InternalErrorException', 'TooManyRequestsException']:
             return {
-                'statusCode': 400,
+                'statusCode': 401,
                 'body': json.dumps({
-                    'message': error['Message'],
-                    'reason': error['Code']
+                    'message': 'There has been a server issue, please try again',
+                    'reason': error_code
                 })
             }
         else:
             return {
-                'statusCode': 500,
+                'statusCode': 400,
                 'body': json.dumps({
-                    'message': 'Unexpected error occurred',
-                    'reason': 'unknown_error'
+                    'message': error['Message'],
+                    'reason': error_code
                 })
             }
+    except Exception as e:
+        logger.error('Unknown error submitting cognito sign_up. Error: %s, with event: %s', e, event)
+        return {
+            'statusCode': 400,
+            'body': json.dumps({
+                'message': str(e),
+                'reason': 'Unknown'
+            })
+        }
 
 
-def submit_to_cognito(email, password, first_name, last_name, phone_number):
+def submit_cognito_sign_up(email, password, first_name, last_name, phone_number):
+    """
 
+    SignUp Docs:
+
+    https://docs.aws.amazon.com/cognito-user-identity-pools/latest/APIReference/API_SignUp.html
+
+    """
     secret_hash = get_secret_hash(username=email, CLIENT_ID=CLIENT_ID, CLIENT_SECRET=CLIENT_SECRET)
 
     attributes = [
@@ -148,11 +171,6 @@ def submit_to_cognito(email, password, first_name, last_name, phone_number):
         UserAttributes=attributes
     )
 
-    confirmation_method = response['CodeDeliveryDetails']['AttributeName']
+    confirmation_method = response['CodeDeliveryDetails']['DeliveryMedium']
 
     return confirmation_method
-
-
-
-
-
