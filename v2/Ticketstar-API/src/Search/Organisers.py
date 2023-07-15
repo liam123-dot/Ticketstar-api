@@ -118,7 +118,11 @@ def get_organiser_events(build_id, organiser_id=None, slug=None):
     return events
 
 
-def search(query, limit=6, offset=0):
+def search(query, limit=None, offset=None):
+    if limit is None:
+        limit = 6
+    if offset is None:
+        offset = 0
     organisers_url = f"https://api.fixr.co/search/organisers?query={query}&limit={limit}&offset={offset}&popularity__boost=0"
 
     response = requests.get(organisers_url, headers=headers)

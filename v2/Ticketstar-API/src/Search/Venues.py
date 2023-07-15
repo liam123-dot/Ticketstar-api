@@ -66,7 +66,11 @@ def get_venue_events(venue_id):
     return events
 
 
-def search(query, limit=6, offset=0):
+def search(query, limit=None, offset=None):
+    if limit is None:
+        limit = 6
+    if offset is None:
+        offset = 0
     venues_url = f"https://api.fixr.co/search/venues?query={query}&limit={limit}&offset={offset}&popularity__boost=0"
 
     response = requests.get(venues_url, headers=headers)

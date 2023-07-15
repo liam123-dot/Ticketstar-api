@@ -31,8 +31,6 @@ Response from cognito:
 }
 
 """
-
-from LambdaInvokationExceptions import InvalidBodyException
 from botocore.exceptions import ClientError
 from utils import get_secret_hash, SecretHashGenerationException
 import boto3
@@ -61,13 +59,13 @@ def lambda_handler(event, context):
         first_name = body['firstName']
         last_name = body['lastName']
         phone_number = body['phoneNumber']
-    except (InvalidBodyException, json.JSONDecodeError) as e:
+    except (KeyError, json.JSONDecodeError) as e:
         logger.error('Error processing body. Error: %s, with event: %s', e, event)  # log the error
         return {
             'statusCode': 400,
             'body': json.dumps({
                 'message': str(e),
-                'reason': 'InvalidBody' if isinstance(e, InvalidBodyException) else 'InvalidJson'
+                'reason': 'InvalidBody' if isinstance(e, KeyError) else 'InvalidJson'
             })
         }
     except Exception as e:

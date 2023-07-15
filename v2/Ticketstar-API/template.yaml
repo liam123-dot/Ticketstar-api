@@ -36,11 +36,85 @@ Resources:
         - AWSLambdaBasicExecutionRole
         - AmazonCognitoPowerUser
       Events:
-        SignUp:
+        Ticketstar:
           Type: Api
           Properties:
             Path: /signup
             Method: post
+
+  SignInFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/Authentication/
+      Handler: SignIn.lambda_handler
+      Runtime: python3.8
+      Layers:
+        - !Ref ExceptionsLayer
+      Environment:
+        Variables:
+          USER_POOL_ID: !Ref UserPoolId
+          CLIENT_ID: !Ref ClientId
+          CLIENT_SECRET: !Ref ClientSecret
+      Policies:
+        - AWSLambdaBasicExecutionRole
+        - AmazonCognitoPowerUser
+      Events:
+        Ticketstar:
+          Type: Api
+          Properties:
+            Path: /signin
+            Method: post
+
+  GetEventsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/Search/
+      Handler: SearchLambdas.get_events
+      Runtime: python3.8
+      Layers:
+        - !Ref ExceptionsLayer
+      Policies:
+        - AWSLambdaBasicExecutionRole
+      Events:
+        Ticketstar:
+          Type: Api
+          Properties:
+            Path: /events
+            Method: get
+
+  GetVenuesFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/Search/
+      Handler: SearchLambdas.get_venues
+      Runtime: python3.8
+      Layers:
+        - !Ref ExceptionsLayer
+      Policies:
+        - AWSLambdaBasicExecutionRole
+      Events:
+        Ticketstar:
+          Type: Api
+          Properties:
+            Path: /venues
+            Method: get
+
+  GetOrganisersFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/Search/
+      Handler: SearchLambdas.get_organisers
+      Runtime: python3.8
+      Layers:
+        - !Ref ExceptionsLayer
+      Policies:
+        - AWSLambdaBasicExecutionRole
+      Events:
+        Ticketstar:
+          Type: Api
+          Properties:
+            Path: /organisers
+            Method: get
 
   ExceptionsLayer:
     Type: AWS::Serverless::LayerVersion
@@ -52,6 +126,6 @@ Resources:
         - python3.8
 
 Outputs:
-  SignUpApi:
-    Description: "API Gateway endpoint URL for SignUp function"
-    Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/signup/"
+  TicketstarApi:
+    Description: "API Gateway endpoint URL for Prod stage for Hello World function"
+    Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/"
