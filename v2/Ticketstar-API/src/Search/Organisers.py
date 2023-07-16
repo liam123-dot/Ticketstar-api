@@ -81,9 +81,18 @@ def get_build_id():
         raise build_id_exception
 
 
-def check_organiser_has_evevents(build_id, organiser_id=None, slug=None):
+def check_organiser_has_events(build_id, organiser_id=None, slug=None):
 
     return len(get_organiser_events(build_id, organiser_id, slug)) != 0
+
+
+def get_organiser_events_info(organiser_id=None, slug=None):
+
+    try:
+        build_id = get_build_id()
+        return get_organiser_events(build_id, organiser_id=organiser_id, slug=slug)
+    except Exception as e:
+        raise FixrApiException(exception=e)
 
 
 def get_organiser_events(build_id, organiser_id=None, slug=None):
@@ -145,7 +154,7 @@ def search(query, limit=None, offset=None):
 
     try:
         with concurrent.futures.ThreadPoolExecutor() as executor:
-            future_to_organiser = {executor.submit(check_organiser_has_evevents, build_id, organiser['id'], organiser['slug']): organiser for
+            future_to_organiser = {executor.submit(check_organiser_has_events, build_id, organiser['id'], organiser['slug']): organiser for
                                    organiser in data['results']}
 
             for future in concurrent.futures.as_completed(future_to_organiser):

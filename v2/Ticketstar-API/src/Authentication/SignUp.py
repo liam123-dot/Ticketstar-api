@@ -123,7 +123,7 @@ def lambda_handler(event, context):
         return {
             'statusCode': 401,
             'body': json.dumps({
-                'message': f'An account already exists with the provided {valid_inputs[1]}',
+                'message': f'An account already exists with the provided phone number',
                 'reason': 'InvalidUserInput'
             })
         }

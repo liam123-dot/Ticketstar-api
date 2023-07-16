@@ -134,12 +134,70 @@ Resources:
             Path: /search/organisers
             Method: get
 
+  GetEventFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/Search/
+      Handler: GetSpecificLambdas.get_event
+      Layers:
+        - !Ref ExceptionsLayer
+        - !Ref DatabaseLayer
+      Policies:
+        - AWSLambdaBasicExecutionRole
+      Events:
+        TicketstarApi:
+          Type: Api
+          Properties:
+            Path: /search/event/{event_id}
+            Method: get
+
+
+  GetOrganiserEventsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/Search/
+      Handler: GetSpecificLambdas.get_organiser_events
+      Layers:
+        - !Ref ExceptionsLayer
+      Policies:
+        - AWSLambdaBasicExecutionRole
+      Events:
+        TicketstarApi:
+          Type: Api
+          Properties:
+            Path: /search/organisers/events
+            Method: get
+
+  GetVenueEventsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/Search/
+      Handler: GetSpecificLambdas.get_venue_events
+      Layers:
+        - !Ref ExceptionsLayer
+      Policies:
+        - AWSLambdaBasicExecutionRole
+      Events:
+        TicketstarApi:
+          Type: Api
+          Properties:
+            Path: /search/venue/{venue_id}
+            Method: get
+
   ExceptionsLayer:
     Type: AWS::Serverless::LayerVersion
     Properties:
       LayerName: ExceptionsLayer
       Description: Lambda layer for exceptions
       ContentUri: layers/Exceptions/
+      CompatibleRuntimes:
+        - python3.9
+  DatabaseLayer:
+    Type: AWS::Serverless::LayerVersion
+    Properties:
+      LayerName: DatabaseLayer
+      Description: Contains database functions and exceptions
+      ContentUri: layers/Database
       CompatibleRuntimes:
         - python3.9
 

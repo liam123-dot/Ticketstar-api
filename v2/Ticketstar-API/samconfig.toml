@@ -16,7 +16,11 @@ lint = true
 [default.deploy.parameters]
 capabilities = "CAPABILITY_IAM"
 confirm_changeset = true
-resolve_s3 = true
+s3_bucket = "ticketstar-api"
+region = "eu-west-2"
+parameter_overrides = "UserPoolId=\"eu-west-2_4o6b90A5T\" ClientId=\"1ehc0rh9dcug5djlopnrgfv5bq\""
+image_repositories = []
+disable_rollback = true
 
 [default.package.parameters]
 resolve_s3 = true

@@ -35,7 +35,8 @@ def generic_get(search_function, entity_type, event, context):
             'statusCode': 500,  # Changed from 401 to 500 as this is a server error
             'body': json.dumps({
                 'message': 'Server error, please try again',
-                'reason': type(e).__name__
+                'reason': 'Exception',
+                'error': type(e).__name__
             })
         }
 

@@ -1,5 +1,5 @@
 {
-  "body": "{\"message\": \"hello world\"}",
+  "body": "{\"event_id\": \"147203876\"}",
   "resource": "/hello",
   "path": "/hello",
   "httpMethod": "GET",
