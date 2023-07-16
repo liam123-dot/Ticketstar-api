@@ -60,7 +60,7 @@ def lambda_handler(event, context):
             'statusCode': 400,
             'body': json.dumps({
                 'message': str(e),
-                'reason': 'InvalidBody' if isinstance(e, KeyError) else 'InvalidJson'
+                'reason': 'InvalidBody' if isinstance(e, KeyError) else 'InvalidBodyJson'
             })
         }
     except Exception as e:
@@ -69,7 +69,8 @@ def lambda_handler(event, context):
             'statusCode': 400,
             'body': json.dumps({
                 'message': str(e),
-                'reason': 'Unknown'
+                'reason': 'Exception',
+                'error': str(e)
             })
         }
 
@@ -83,7 +84,7 @@ def lambda_handler(event, context):
             'statusCode': 400,
             'body': json.dumps({
                 'message': 'Error generating secret hash',
-                'reason': 'secret_hash'
+                'reason': 'SecretHashGenerator'
             })
         }
 
@@ -97,7 +98,8 @@ def lambda_handler(event, context):
                 'statusCode': 401,
                 'body': json.dumps({
                     'message': 'Account verification not yet complete',
-                    'reason': 'UserNotConfirmed'
+                    'reason': 'CognitoException',
+                    'error': error_code
                 })
             }
         elif error_code == 'UserNotFoundException':
@@ -105,7 +107,8 @@ def lambda_handler(event, context):
                 'statusCode': 401,
                 'body': json.dumps({
                     'message': 'Email is not associated with any account. Have you created an account?',
-                    'reason': 'AccountDoesNotExist'
+                    'reason': 'CognitoException',
+                    'error': error_code
                 })
             }
         elif error_code in ['InternalErrorException', 'TooManyRequestsException']:
@@ -113,7 +116,8 @@ def lambda_handler(event, context):
                 'statusCode': 401,
                 'body': json.dumps({
                     'message': 'There has been a server issue, please try again',
-                    'reason': error_code
+                    'reason': 'CognitoException',
+                    'error': error_code
                 })
             }
         else:
@@ -121,7 +125,8 @@ def lambda_handler(event, context):
                 'statusCode': 400,
                 'body': json.dumps({
                     'message': error['Message'],
-                    'reason': error_code
+                    'reason': 'CognitoException',
+                    'error': error_code
                 })
             }
     except Exception as e:

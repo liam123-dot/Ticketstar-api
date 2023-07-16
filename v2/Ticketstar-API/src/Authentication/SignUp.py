@@ -6,6 +6,7 @@ This contains many aspect of error handling and verification.
 
 We need many functions to fulfill this.
 """
+import botocore.exceptions
 
 """
 SignUpFunction:
@@ -74,7 +75,56 @@ def lambda_handler(event, context):
             'statusCode': 400,
             'body': json.dumps({
                 'message': str(e),
-                'reason': 'Unknown'
+                'reason': 'Exception',
+                'error': e
+            })
+        }
+
+    try:
+        valid_inputs = check_phone_number_valid(phone_number)
+
+    except botocore.exceptions.ClientError as e:
+        error = e.response['Error']
+        error_code = error['Code']
+
+        logger.error('Client error, check_phone_number_valid: %s, with event %s', error, event)  # log the error
+
+        if error_code == 'TooManyRequestsException':
+            return {
+                'statusCode': 501,
+                'body': json.dumps({
+                    'message': 'Too many requests, try again later',
+                    'reason': 'CognitoTooManyRequests'
+                })
+            }
+        else:
+            return {
+                'statusCode': 500,
+                'body': json.dumps({
+                    'message': e.response['Message'],
+                    'reason': error_code,
+                    'error': 2
+                })
+            }
+
+    except Exception as e:
+        logger.error("Error validating inputs error: %s", e)
+
+        return {
+            'statusCode': 500,
+            'body': json.dumps({
+                'message': 'Server Error',
+                'reason': 'Exception',
+                'error': str(e)
+            })
+        }
+
+    if not valid_inputs:
+        return {
+            'statusCode': 401,
+            'body': json.dumps({
+                'message': f'An account already exists with the provided {valid_inputs[1]}',
+                'reason': 'InvalidUserInput'
             })
         }
 
@@ -88,15 +138,6 @@ def lambda_handler(event, context):
                 'confirmation_method': confirmation_method
             })
         }
-    except SecretHashGenerationException:
-        logger.error('Error generating secret hash with event: %s', event)  # log the error
-        return {
-            'statusCode': 400,
-            'body': json.dumps({
-                'message': 'Error generating secret hash',
-                'reason': 'secret_hash'
-            })
-        }
     except ClientError as e:
         error = e.response['Error']
         error_code = error['Code']
@@ -106,7 +147,8 @@ def lambda_handler(event, context):
                 'statusCode': 401,
                 'body': json.dumps({
                     'message': error['Message'],
-                    'reason': error_code
+                    'reason': 'CognitoException',
+                    'error': error_code
                 })
             }
         elif error_code == 'CodeDeliveryFailureException':
@@ -114,7 +156,8 @@ def lambda_handler(event, context):
                 'statusCode': 401,
                 'body': json.dumps({
                     'message': error['Message'],
-                    'reason': 'CodeDeliveryFailure'
+                    'reason': 'CognitoException',
+                    'error': error_code
                 })
             }
         elif error_code in ['InternalErrorException', 'TooManyRequestsException']:
@@ -122,7 +165,8 @@ def lambda_handler(event, context):
                 'statusCode': 401,
                 'body': json.dumps({
                     'message': 'There has been a server issue, please try again',
-                    'reason': error_code
+                    'reason': 'CognitoException',
+                    'error': error_code
                 })
             }
         else:
@@ -130,7 +174,8 @@ def lambda_handler(event, context):
                 'statusCode': 400,
                 'body': json.dumps({
                     'message': error['Message'],
-                    'reason': error_code
+                    'reason': 'CognitoException',
+                    'error': error_code
                 })
             }
     except Exception as e:
@@ -139,9 +184,38 @@ def lambda_handler(event, context):
             'statusCode': 400,
             'body': json.dumps({
                 'message': str(e),
-                'reason': 'Unknown'
+                'reason': 'CognitoException',
+                'error': str(e)
             })
         }
+
+
+def check_phone_number_valid(phone_number):
+    """
+
+    ListUsers Docs:
+
+    https://docs.aws.amazon.com/cognito-user-identity-pools/latest/APIReference/API_ListUsers.html
+
+    """
+
+    response = cognito.list_users(
+        UserPoolId=USER_POOL_ID,
+        AttributesToGet=[
+            'email',
+            'phone_number'
+        ],
+        Filter=f"phone_number='{phone_number}'"
+    )
+
+    for user in response['Users']:
+        attributes = user['Attributes']
+        logger.info(attributes)
+        for attribute in attributes:
+            if attribute['Name'] == 'phone_number' and attribute['Value'] == phone_number:
+                return False
+
+    return True
 
 
 def submit_cognito_sign_up(email, password, first_name, last_name, phone_number):
