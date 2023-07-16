@@ -5,6 +5,9 @@ Description: An AWS Serverless Specification template describing your function.
 Globals:
   Function:
     Timeout: 10
+    Architectures:
+      - arm64
+    Runtime: python3.9
 
 Parameters:
   UserPoolId:
@@ -24,7 +27,6 @@ Resources:
     Properties:
       CodeUri: src/Authentication/
       Handler: SignUp.lambda_handler
-      Runtime: python3.8
       Layers:
         - !Ref ExceptionsLayer
       Environment:
@@ -36,10 +38,10 @@ Resources:
         - AWSLambdaBasicExecutionRole
         - AmazonCognitoPowerUser
       Events:
-        Ticketstar:
+        TicketstarApi:
           Type: Api
           Properties:
-            Path: /signup
+            Path: /authentication/signup
             Method: post
 
   SignInFunction:
@@ -47,7 +49,6 @@ Resources:
     Properties:
       CodeUri: src/Authentication/
       Handler: SignIn.lambda_handler
-      Runtime: python3.8
       Layers:
         - !Ref ExceptionsLayer
       Environment:
@@ -59,10 +60,30 @@ Resources:
         - AWSLambdaBasicExecutionRole
         - AmazonCognitoPowerUser
       Events:
-        Ticketstar:
+        TicketstarApi:
           Type: Api
           Properties:
-            Path: /signin
+            Path: /authentication/signin
+            Method: post
+
+  VerifyConfirmationCodeFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/Authentication/
+      Handler: VerifyConfirmationCode.lambda_handler
+      Environment:
+        Variables:
+          USER_POOL_ID: !Ref UserPoolId
+          CLIENT_ID: !Ref ClientId
+          CLIENT_SECRET: !Ref ClientSecret
+      Policies:
+        - AWSLambdaBasicExecutionRole
+        - AmazonCognitoPowerUser
+      Events:
+        TicketstarApi:
+          Type: Api
+          Properties:
+            Path: /authentication/verifyconfirmationcode
             Method: post
 
   GetEventsFunction:
@@ -70,16 +91,15 @@ Resources:
     Properties:
       CodeUri: src/Search/
       Handler: SearchLambdas.get_events
-      Runtime: python3.8
       Layers:
         - !Ref ExceptionsLayer
       Policies:
         - AWSLambdaBasicExecutionRole
       Events:
-        Ticketstar:
+        TicketstarApi:
           Type: Api
           Properties:
-            Path: /events
+            Path: /search/events
             Method: get
 
   GetVenuesFunction:
@@ -87,16 +107,15 @@ Resources:
     Properties:
       CodeUri: src/Search/
       Handler: SearchLambdas.get_venues
-      Runtime: python3.8
       Layers:
         - !Ref ExceptionsLayer
       Policies:
         - AWSLambdaBasicExecutionRole
       Events:
-        Ticketstar:
+        TicketstarApi:
           Type: Api
           Properties:
-            Path: /venues
+            Path: /search/venues
             Method: get
 
   GetOrganisersFunction:
@@ -104,16 +123,15 @@ Resources:
     Properties:
       CodeUri: src/Search/
       Handler: SearchLambdas.get_organisers
-      Runtime: python3.8
       Layers:
         - !Ref ExceptionsLayer
       Policies:
         - AWSLambdaBasicExecutionRole
       Events:
-        Ticketstar:
+        TicketstarApi:
           Type: Api
           Properties:
-            Path: /organisers
+            Path: /search/organisers
             Method: get
 
   ExceptionsLayer:
@@ -123,9 +141,9 @@ Resources:
       Description: Lambda layer for exceptions
       ContentUri: layers/Exceptions/
       CompatibleRuntimes:
-        - python3.8
+        - python3.9
 
 Outputs:
   TicketstarApi:
-    Description: "API Gateway endpoint URL for Prod stage for Hello World function"
+    Description: "API Gateway endpoint URL for Prod stage for ticketstar function"
     Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/"
