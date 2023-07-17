@@ -14,6 +14,16 @@ def generic_get(search_function, entity_type, event, context):
         query_string = event['queryStringParameters']
         query = query_string['query']
 
+        if len(query) == 0:
+            logger.error(f"Invalid query string passed, query empty, event: {event}")
+            return {
+                'statusCode': 400,
+                'body': json.dumps({
+                    'message': f'Invalid query string sent: {query}',
+                    'reason': 'InvalidQueryString'
+                })
+            }
+
     except KeyError as e:
         logger.error(f"Invalid query string passed, error: {e}, event: {event}")
         return {

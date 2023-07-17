@@ -46,10 +46,8 @@ def get_ticket_id(fixr_event_id, fixr_ticket_id):
 
 
 def get_asks_by_ticket_id(ticket_id):
-    get_asks_query = """
-    SELECT ask_id, price, seller_user_id, reserved, reserve_timeout, buyer_user_id from Asks
-    WHERE ticket_id=%s AND fulfilled=0 ORDER BY price ASC
-    """
+    get_asks_query = """SELECT ask_id, price, seller_user_id, reserved, reserve_timeout, buyer_user_id from Asks
+    WHERE ticket_id=%s AND fulfilled=0 AND listed=1 ORDER BY price ASC"""
 
     try:
 
@@ -69,10 +67,10 @@ def get_asks_by_ticket_id(ticket_id):
                 asks.append({
                     'ask_id': ask[0],
                     'price': ask[1],
-                    'user_id': ask[2],
+                    'seller_user_id': ask[2],
                     'reserved': ask[3] == b'\x01',
                     'reserve_timeout': ask[4],
-                    'buyer_id': ask[5]
+                    'buyer_user_id': ask[5]
                 })
 
         return {
@@ -88,7 +86,43 @@ def get_asks_by_ticket_id(ticket_id):
 def get_asks_by_fixr_ids(fixr_event_id, fixr_ticket_id):
     ticket_id = get_ticket_id(fixr_event_id, fixr_ticket_id)
 
-    return get_asks_by_ticket_id(ticket_id)
+    return ticket_id, get_asks_by_ticket_id(ticket_id)
 
 
+def get_ask(ask_id):
+    query = """SELECT price, fulfilled, reserved, buyer_user_id, reserve_timeout FROM asks where ask_id=%s """
 
+    try:
+        with Database() as database:
+            result = database.execute_select_query(query, (ask_id, ))
+
+        if len(result) == 0:
+            return None
+
+        ask = result[0]
+
+        ask = {
+            'price': ask[0],
+            'fulfilled': ask[1] == b'\x01',
+            'reserved': ask[2] == b'\x01',
+            'buyer_user_id': ask[3],
+            'reserve_timeout': ask[4]
+        }
+
+        return ask
+
+    except Exception as e:
+        logger.error("Error get_ask, error: %s", e)
+        raise DatabaseException(e)
+
+
+def reserve_ask(ask_id, user_id, reserve_timeout):
+    query = """UPDATE asks SET reserved=1, reserve_timeout=%s, buyer_user_id=%s WHERE ask_id=%s"""
+
+    try:
+        with Database() as database:
+            database.execute_update_query(query, (reserve_timeout, user_id, ask_id))
+
+    except Exception as e:
+        logger.error("Error get_ask, error: %s", e)
+        raise DatabaseException(e)

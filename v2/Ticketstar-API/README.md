@@ -40,4 +40,10 @@ CodeMismatchException
 
 UserNotFoundException
 
+AskUpdated
+ListingFulfilled
+ListingReserved
+
+DatabaseException
+
 ```

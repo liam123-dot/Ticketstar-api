@@ -165,7 +165,7 @@ Resources:
         TicketstarApi:
           Type: Api
           Properties:
-            Path: /search/organisers/events
+            Path: /search/organiser
             Method: get
 
   GetVenueEventsFunction:
@@ -183,6 +183,23 @@ Resources:
           Properties:
             Path: /search/venue/{venue_id}
             Method: get
+
+  ReserveListingFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/Listings/Reserve/
+      Handler: CreateReservation.lambda_handler
+      Layers:
+        - !Ref ExceptionsLayer
+        - !Ref DatabaseLayer
+      Policies:
+        - AWSLambdaBasicExecutionRole
+      Events:
+        TicketstarApi:
+          Type: Api
+          Properties:
+            Path: /listings/reserve
+            Method: post
 
   ExceptionsLayer:
     Type: AWS::Serverless::LayerVersion

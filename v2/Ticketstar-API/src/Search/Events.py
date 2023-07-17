@@ -7,7 +7,30 @@ Search url: https://api.fixr.co/search/events?query=timep
 
 location query for Exeter: &lat=50.72604&lon=-3.52749
 
+get event needs to show exactly how the screen should look so that there isn't any processing required on user side
+and to allow for easy changes in future
+
+should take the id of the user is searching and return each ticket as an option:
+
+each tickets object should already have assessed what that user should display:
+
+{
+
+    name:
+    ticket_id:
+    fixr_price:
+    listing: { # just show the cheapest to purchase,
+        ask_id,
+        cheapest,
+        ask_price,
+        seller_id
+    }
+
+
+}
+
 """
+import json
 
 from FixrExceptions import FixrApiException
 
@@ -25,7 +48,11 @@ def search(search_query, limit=None, offset=None):
         offset = 0
     url = f"https://api.fixr.co/search/events?query={search_query}&limit={limit}&offset={offset}"
 
-    response = requests.get(url)
+    headers = {
+        "Accept": "application/json; version=3.0"
+    }
+
+    response = requests.get(url, headers=headers)
 
     if not response.ok:
         logger.error("Response error from fixr. Response code: %s, Response text: %s", response.status_code, response.text)
@@ -58,7 +85,7 @@ def search(search_query, limit=None, offset=None):
     return events
 
 
-def get_event_info(event_id):
+def get_event_info(event_id, user_id):
     from DatabaseActions import get_asks_by_fixr_ids
     from DatabaseException import DatabaseException
 
@@ -99,13 +126,17 @@ def get_event_info(event_id):
 
         try:
 
-            ticket_asks = get_asks_by_fixr_ids(event_id, ticket_id)
+            ticket_id, ticket_asks = get_asks_by_fixr_ids(event_id, ticket_id)
 
         except DatabaseException:
 
             ticket_asks = None
 
-        ticket_info['asks'] = ticket_asks
+        ticket_info['id'] = ticket_id
+
+        ticket_info['listing'] = filter_ticket_asks(ticket_asks, user_id)
+
+        logger.info(ticket_info)
 
         tickets.append(ticket_info)
 
@@ -121,3 +152,53 @@ def get_event_info(event_id):
     event['tickets'] = tickets
 
     return event
+
+
+def filter_ticket_asks(asks, user_id):
+    import time
+    """
+    { # just show the cheapest to purchase,
+        ask_id,
+        cheapest,
+        ask_price,
+    }
+
+
+    """
+
+    ask_count = asks['ask_count']
+    asks = asks['asks']
+
+    if ask_count == 0:
+        return None
+
+    index = 0
+    cheapest_ticket = {}
+
+    while True:
+        ticket = asks[index]
+
+        if ticket['reserved']:
+            current_time = round(time.time())
+            if ticket['reserve_timeout'] < current_time:
+                ticket['reserved'] = False
+            elif ticket['buyer_user_id'] != user_id:
+                break
+
+        if ticket['seller_user_id'] != user_id and not ticket['reserved']:
+            cheapest_ticket = {
+                'ask_id': ticket['ask_id'],
+                'cheapest': index == 0,
+                'ask_price': ticket['price'],
+            }
+            break
+
+        index += 1
+
+        if index == ask_count:
+            break
+
+    if len(cheapest_ticket) == 0:
+        return None
+    else:
+        return cheapest_ticket

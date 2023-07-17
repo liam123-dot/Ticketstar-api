@@ -46,18 +46,36 @@ def get_event(event, context):
         }
 
     try:
+        query_string_parameters = event['queryStringParameters']
 
-        response = get_event_info(event_id)
+        user_id = query_string_parameters['user_id']
+
+        logger.info(f"User id: {user_id}")
+
+    except KeyError as e:
+
+        logger.error("Invalid path parameters, error: %s", e)
 
         return {
-            'statusCode': 200,
+            'statusCode': 400,
             'body': json.dumps({
-                'event': response
+                'message': 'Invalid path parameters ' + str(e)
             })
         }
 
+    try:
+
+        response = get_event_info(event_id, user_id)
+
+        return {
+            'statusCode': 200,
+            'body': json.dumps(
+                response
+            )
+        }
+
     except FixrApiException as e:
-        logger.info("Error with fixr response error: %s. with event: %s", e, event)
+        logger.error("Error with fixr response error: %s. with event: %s", e, event)
         return {
             'statusCode': 501,
             'body': json.dumps({
@@ -66,7 +84,7 @@ def get_event(event, context):
             })
         }
     except KeyError as e:
-        logger.info("Key error, possible change to ticket parameters, error: %s", e)
+        logger.error("Key error, possible change to ticket parameters, error: %s", str(e))
         return {
             'statusCode': 500,
             'body': json.dumps({
@@ -74,7 +92,7 @@ def get_event(event, context):
             })
         }
     except Exception as e:
-        logger.info("Exception get_event, error: %s, event: %s", e, event)
+        logger.error("Exception get_event, error: %s, event: %s", e, event)
         return {
             'statusCode': 500,
             'body': json.dumps({
@@ -125,7 +143,7 @@ def get_organiser_events(event, context):
             })
         }
     except Exception as e:
-        logger.info("Exception get_organiser_events, error: %s, event: %s", e, event)
+        logger.error("Exception get_organiser_events, error: %s, event: %s", e, event)
         return {
             'statusCode': 500,
             'body': json.dumps({

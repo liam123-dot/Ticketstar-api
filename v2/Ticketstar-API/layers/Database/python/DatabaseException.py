@@ -1,9 +1,9 @@
 
 class DatabaseException(Exception):
 
-    def __init__(self, message, *args):
-        self.message = message
-        super().__init__(message, *args)
+    def __init__(self, parent_exception, *args):
+        self.parent_exception = parent_exception
+        super().__init__(parent_exception, *args)
 
     def __str__(self):
-        return "There has been a database: " + self.message
+        return "There has been a database error: " + str(self.parent_exception)

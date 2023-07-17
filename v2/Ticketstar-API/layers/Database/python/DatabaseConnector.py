@@ -2,17 +2,24 @@ import pymysql
 import boto3
 import json
 import base64
-
+import os
 import logging
+
+from DatabaseException import DatabaseException
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
+
+host = os.environ.get("HOST")
+user = os.environ.get("USER")
+password = os.environ.get("PASSWORD")
+database = os.environ.get("DATABASE")
 
 
 def connect_to_db():
     try:
         connection = pymysql.connect(
-            host='localhost',
+            host='host.docker.internal',
             user='root',
             password='Redyred358!',
             db='ticketstartest'
@@ -46,7 +53,7 @@ class Database:
             try:
                 cursor.execute(query, args)
                 result = cursor.fetchall()
-                logger.info("Database query: %s", query)
+                logger.info("Database query: %s, results: %s", (query, args), result)
                 return result
             except Exception as e:
                 logger.error("Error attempting to execute query: %s, error: %s", query, e)
@@ -60,7 +67,7 @@ class Database:
                 logger.info("Database query: %s", query)
                 return result_id
             except Exception as e:
-                logger.error("Error attempting to execute query: %s, error: %s", query, e)
+                logger.error("Error attempting to execute query: %s, error: %s", (query, args), e)
                 return None
 
     def execute_update_query(self, query, args=None):
@@ -69,8 +76,8 @@ class Database:
                 cursor.execute(query, args)
                 logger.info("Database query: %s", query)
             except Exception as e:
-                logger.error("Error attempting to execute query: %s, error: %s", query, e)
-                return None
+                logger.error("Error attempting to execute query: %s, error: %s", (query, args), e)
+                raise e
 
     def __enter__(self):
         return self
@@ -81,7 +88,7 @@ class Database:
                 self.connection.commit()
                 self.connection.close()
 
-                logger.info("Database successfully deleted")
+                logger.info("Database successfully disconnected")
 
             except Exception as e:
                 logger.error("Error while exiting database connection error: %s", e)
