@@ -18,7 +18,7 @@ def get_ticket_id(fixr_event_id, fixr_ticket_id):
 
         with Database() as database:
 
-            get_ticket_query = "SELECT ticket_id, search_count FROM tickets WHERE fixr_ticket_id=%s AND fixr_event_id=%s"
+            get_ticket_query = "SELECT ticket_id FROM tickets WHERE fixr_ticket_id=%s AND fixr_event_id=%s"
 
             result = database.execute_select_query(get_ticket_query, (fixr_ticket_id, fixr_event_id))
 
@@ -28,15 +28,13 @@ def get_ticket_id(fixr_event_id, fixr_ticket_id):
 
                 ticket_id = database.execute_insert_query(insert_ticket_query, (fixr_ticket_id, fixr_event_id))
 
+                from UpdateTickets import update
+
+                update()
+
             else:
 
                 ticket_id = result[0][0]
-
-                search_count = int(result[0][1]) + 1
-
-                update_search_query = "UPDATE tickets SET search_count=%s WHERE ticket_id=%s"
-
-                database.execute_update_query(update_search_query, (search_count, ticket_id))
 
         return ticket_id
 
@@ -47,7 +45,7 @@ def get_ticket_id(fixr_event_id, fixr_ticket_id):
 
 def get_asks_by_ticket_id(ticket_id):
     get_asks_query = """SELECT ask_id, price, seller_user_id, reserved, reserve_timeout, buyer_user_id from Asks
-    WHERE ticket_id=%s AND fulfilled=0 AND listed=1 ORDER BY price ASC"""
+    WHERE ticket_id=%s AND fulfilled=0 and listed=1 ORDER BY price ASC"""
 
     try:
 
@@ -126,3 +124,177 @@ def reserve_ask(ask_id, user_id, reserve_timeout):
     except Exception as e:
         logger.error("Error get_ask, error: %s", e)
         raise DatabaseException(e)
+
+
+def get_fixr_account_for_ticket_id(ticket_id):
+    query = """
+        SELECT fixr_username, fixr_password, account_id
+        FROM fixraccounts
+        WHERE account_id IN (
+            SELECT account_id
+            FROM currentaccountrelationships
+            WHERE ticket_id = %s AND quantity < ticket_limit
+            UNION
+            SELECT account_id
+            FROM fixraccounts
+            WHERE account_id NOT IN (
+                SELECT account_id
+                FROM currentaccountrelationships
+            )
+        )
+        LIMIT 1;
+        """
+    try:
+        with Database() as database:
+            result = database.execute_select_query(query, (ticket_id, ))
+            return result[0]
+    except Exception as e:
+        raise DatabaseException(e)
+
+
+def check_relationship_exists(account_id, ticket_id):
+
+    sql = """
+    SELECT relationship_id, quantity
+    FROM currentAccountRelationships
+    WHERE account_id=%s AND ticket_id=%s
+    """
+    try:
+        with Database() as database:
+            result = database.execute_select_query(sql, (account_id, ticket_id))
+            if len(result) == 0:
+                return False
+            else:
+                relationship_id = result[0][0]
+                quantity = result[0][1] + 1
+                sql = """
+                UPDATE currentAccountRelationships
+                SET quantity=%s
+                WHERE relationship_id=%s
+                """
+                database.execute_update_query(sql, (quantity, relationship_id))
+
+                return True
+
+    except Exception as e:
+        raise DatabaseException(e)
+
+def create_new_relationship(account_id, ticket_id, max_per_user):
+    sql = """
+    INSERT INTO currentAccountRelationships(account_id, ticket_id, ticket_limit, quantity)
+    VALUES (%s, %s, %s, 1)
+    """
+    try:
+        with Database() as database:
+            database.execute_insert_query(sql, (account_id, ticket_id, max_per_user))
+
+    except Exception as e:
+        raise DatabaseException(e)
+
+
+def create_real_ticket(ticket_id, account_id, ticket_reference):
+    sql = """
+    INSERT INTO realtickets(ticket_id, account_id, ticket_reference)
+    VALUES (%s, %s, %s)
+    """
+
+    try:
+        with Database() as database:
+            real_ticket_id = database.execute_insert_query(sql, (ticket_id, account_id, ticket_reference))
+            return real_ticket_id
+
+    except Exception as e:
+        raise DatabaseException(e)
+
+
+def create_ask(seller_user_id, price, real_ticket_id, ticket_id):
+    sql = """
+    INSERT INTO asks(seller_user_id, price, real_ticket_id, ticket_id)
+    VALUES (%s, %s, %s, %s)
+    """
+    try:
+        with Database() as database:
+            database.execute_insert_query(sql, (seller_user_id, price, real_ticket_id, ticket_id))
+
+    except Exception as e:
+        raise DatabaseException(e)
+
+
+def get_purchases(user_id):
+    sql = """
+    SELECT ask_id, price, ticket_id FROM asks 
+    WHERE buyer_user_id=%s AND fulfilled=1
+    """
+    try:
+        with Database() as database:
+            results = database.execute_select_query(sql, (user_id, ))
+
+        return results
+    except Exception as e:
+        raise DatabaseException(e)
+
+
+def get_listings(user_id):
+    sql = """
+    SELECT ask_id, price, ticket_id, fulfilled, listed FROM asks
+    WHERE seller_user_id=%s
+    """
+    try:
+        with Database() as database:
+            results = database.execute_select_query(sql, (user_id, ))
+
+        return results
+    except Exception as e:
+        raise DatabaseException(e)
+
+def get_ticket_info(ticket_id):
+    sql = """SELECT ticket_name, event_name, open_time, close_time, image_url, fixr_event_id, fixr_ticket_id
+    from Tickets WHERE ticket_id=%s"""
+
+    try:
+        with Database() as database:
+            results = database.execute_select_query(sql, (ticket_id, ))
+
+        return results
+
+    except Exception as e:
+        raise DatabaseException(e)
+
+
+def get_tickets_to_update():
+    sql = """
+    SELECT ticket_id, fixr_ticket_id, fixr_event_id FROM Tickets
+    WHERE image_url is NULL
+    """
+
+    try:
+        with Database() as database:
+            results = database.execute_select_query(sql)
+        return results
+    except Exception as e:
+        raise DatabaseException(e)
+
+
+def update_ticket_info(ticket_name, event_name, open_time, close_time, image_url, ticket_id):
+    sql = """
+    UPDATE Tickets SET ticket_name=%s, event_name=%s, open_time=%s, close_time=%s, image_url=%s
+    WHERE ticket_id=%s
+    """
+    try:
+        with Database() as database:
+            database.execute_update_query(sql, (ticket_name, event_name, open_time, close_time, image_url, ticket_id))
+    except Exception as e:
+        raise DatabaseException(e)
+
+
+def remove_listing(ask_id):
+    sql = """
+    UPDATE asks SET listed=0 WHERE ask_id=%s
+    """
+
+    try:
+        with Database() as database:
+            database.execute_update_query(sql, ask_id)
+    except Exception as e:
+        raise DatabaseException(e)
+

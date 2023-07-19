@@ -201,6 +201,57 @@ Resources:
             Path: /listings/reserve
             Method: post
 
+  VerifyTransferUrl:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/Fixr
+      Handler: VerifyTransferUrl.lambda_handler
+      Layers:
+        - !Ref ExceptionsLayer
+        - !Ref FixrLayer
+      Policies:
+        - AWSLambdaBasicExecutionRole
+      Events:
+        TicketstarApi:
+          Type: Api
+          Properties:
+            Path: /transfers/verifyurl
+            Method: post
+
+  PostAskFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/Listings
+      Handler: PostListing.lambda_handler
+      Layers:
+        - !Ref DatabaseLayer
+        - !Ref FixrLayer
+        - !Ref ExceptionsLayer
+      Policies:
+        - AWSLambdaBasicExecutionRole
+      Events:
+        TicketstarApi:
+          Type: Api
+          Properties:
+            Path: /listing
+            Method: post
+
+  GetListingsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/Listings
+      Handler: GetListings.lambda_handler
+      Layers:
+        - !Ref DatabaseLayer
+      Policies:
+        - AWSLambdaBasicExecutionRole
+      Events:
+        TicketstarApi:
+          Type: Api
+          Properties:
+            Path: /listing
+            Method: get
+
   ExceptionsLayer:
     Type: AWS::Serverless::LayerVersion
     Properties:
@@ -215,6 +266,14 @@ Resources:
       LayerName: DatabaseLayer
       Description: Contains database functions and exceptions
       ContentUri: layers/Database
+      CompatibleRuntimes:
+        - python3.9
+  FixrLayer:
+    Type: AWS::Serverless::LayerVersion
+    Properties:
+      LayerName: FixrLayer
+      Description: contains functions and classes for dealing with fixr
+      ContentUri: layers/FixrFunctions
       CompatibleRuntimes:
         - python3.9
 

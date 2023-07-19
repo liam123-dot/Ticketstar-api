@@ -19,6 +19,7 @@ database = os.environ.get("DATABASE")
 def connect_to_db():
     try:
         connection = pymysql.connect(
+            # host.docker.internal
             host='host.docker.internal',
             user='root',
             password='Redyred358!',
@@ -57,24 +58,24 @@ class Database:
                 return result
             except Exception as e:
                 logger.error("Error attempting to execute query: %s, error: %s", query, e)
-                return None
+                raise e
 
     def execute_insert_query(self, query, args=None):
         with self.connection.cursor() as cursor:
             try:
                 cursor.execute(query, args)
                 result_id = cursor.lastrowid
-                logger.info("Database query: %s", query)
+                logger.info("Database query: %s", (query, args))
                 return result_id
             except Exception as e:
                 logger.error("Error attempting to execute query: %s, error: %s", (query, args), e)
-                return None
+                raise e
 
     def execute_update_query(self, query, args=None):
         with self.connection.cursor() as cursor:
             try:
                 cursor.execute(query, args)
-                logger.info("Database query: %s", query)
+                logger.info("Database query: %s", (query, args))
             except Exception as e:
                 logger.error("Error attempting to execute query: %s, error: %s", (query, args), e)
                 raise e

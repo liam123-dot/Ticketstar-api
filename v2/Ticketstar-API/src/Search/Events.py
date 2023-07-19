@@ -30,7 +30,6 @@ each tickets object should already have assessed what that user should display:
 }
 
 """
-import json
 
 from FixrExceptions import FixrApiException
 
@@ -132,6 +131,7 @@ def get_event_info(event_id, user_id):
 
             ticket_asks = None
 
+        ticket_info['fixr_id'] = ticket_info['id']
         ticket_info['id'] = ticket_id
 
         ticket_info['listing'] = filter_ticket_asks(ticket_asks, user_id)
