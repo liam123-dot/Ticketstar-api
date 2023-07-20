@@ -218,7 +218,7 @@ Resources:
             Path: /transfers/verifyurl
             Method: post
 
-  PostAskFunction:
+  PostListingFunction:
     Type: AWS::Serverless::Function
     Properties:
       CodeUri: src/Listings
@@ -236,6 +236,54 @@ Resources:
             Path: /listing
             Method: post
 
+  RemoveListingFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/Listings
+      Handler: DeleteListing.lambda_handler
+      Layers:
+        - !Ref DatabaseLayer
+      Policies:
+        - AWSLambdaBasicExecutionRole
+      Events:
+        TicketstarApi:
+          Type: Api
+          Properties:
+            Path: /listing
+            Method: delete
+
+  EditListingFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/Listings
+      Handler: EditListing.lambda_handler
+      Layers:
+        - !Ref DatabaseLayer
+      Policies:
+        - AWSLambdaBasicExecutionRole
+      Events:
+        TicketstarApi:
+          Type: Api
+          Properties:
+            Path: /listing
+            Method: put
+
+  RelistListingFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/Listings
+      Handler: Relist.lambda_handler
+      Layers:
+        - !Ref DatabaseLayer
+      Policies:
+        - AWSLambdaBasicExecutionRole
+      Events:
+        TicketstarApi:
+          Type: Api
+          Properties:
+            Path: /listing/relist
+            Method: put
+
   GetListingsFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -250,6 +298,40 @@ Resources:
           Type: Api
           Properties:
             Path: /listing
+            Method: get
+
+  GetPurchasesFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/Listings
+      Handler: GetPurchases.lambda_handler
+      Layers:
+        - !Ref DatabaseLayer
+      Policies:
+        - AWSLambdaBasicExecutionRole
+      Events:
+        TicketstarApi:
+          Type: Api
+          Properties:
+            Path: /purchases
+            Method: get
+
+  GetTransferUrlFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/Transfer
+      Handler: GetTransferUrl.lambda_handler
+      Layers:
+        - !Ref DatabaseLayer
+        - !Ref FixrLayer
+        - !Ref ExceptionsLayer
+      Policies:
+        - AWSLambdaBasicExecutionRole
+      Events:
+        TicketstarApi:
+          Type: Api
+          Properties:
+            Path: /transfers/{ask_id}
             Method: get
 
   ExceptionsLayer:

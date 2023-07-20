@@ -294,7 +294,85 @@ def remove_listing(ask_id):
 
     try:
         with Database() as database:
-            database.execute_update_query(sql, ask_id)
+            database.execute_update_query(sql, (ask_id, ))
+    except Exception as e:
+        raise DatabaseException(e)
+
+
+def relist_listing(ask_id):
+    sql = """
+        UPDATE asks SET listed=1 WHERE ask_id=%s
+        """
+
+    try:
+        with Database() as database:
+            database.execute_update_query(sql, (ask_id,))
+    except Exception as e:
+        raise DatabaseException(e)
+
+
+def edit_listing(ask_id, price):
+    sql = """
+    UPDATE asks SET price=%s WHERE ask_id=%s
+    """
+    try:
+        with Database() as database:
+            database.execute_update_query(sql, (price, ask_id))
+
+    except Exception as e:
+        raise DatabaseException(e)
+
+
+def get_fixr_account_details_from_account_id(account_id):
+    sql = """
+    SELECT fixr_username, fixr_password FROM FixrAccounts WHERE account_id=%s
+    """
+    try:
+        with Database() as database:
+            results = database.execute_select_query(sql, (account_id, ))
+        return results
+    except Exception as e:
+        raise DatabaseException(e)
+
+
+def get_fixr_account_details_from_real_ticket_id(real_ticket_id):
+    sql = """
+    SELECT account_id FROM realtickets WHERE real_ticket_id=%s
+    """
+    try:
+        with Database() as database:
+            results = database.execute_select_query(sql, (real_ticket_id, ))
+
+        account_id = results[0][0]
+        return get_fixr_account_details_from_account_id(account_id)
+    except Exception as e:
+        raise DatabaseException(e)
+
+
+def get_real_ticket_details(real_ticket_id):
+    sql = """
+    SELECT account_id, ticket_reference FROM realtickets WHERE real_ticket_id=%s
+    """
+    try:
+        with Database() as database:
+            results = database.execute_select_query(sql, (real_ticket_id, ))
+
+        real_ticket = results[0]
+        return real_ticket
+    except Exception as e:
+        raise DatabaseException(e)
+
+
+def get_real_ticket_by_ask_id(ask_id):
+    sql = """
+    SELECT real_ticket_id FROM asks WHERE ask_id=%s
+    """
+    try:
+        with Database() as database:
+            results = database.execute_select_query(sql, (ask_id, ))
+
+        real_ticket_id = results[0][0]
+        return get_real_ticket_details(real_ticket_id)
     except Exception as e:
         raise DatabaseException(e)
 

@@ -1,30 +1,15 @@
 
-"""
-
-Function to get all the listings with a certain requirement
-
-Can be used to get purchases/listings
-
-if listed=0, needs a link for transfer url, not too difficult.
-
-"""
 import json
 import logging
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
-
 def lambda_handler(event, context):
 
     try:
         headers = event['headers']
         user_id = headers['Authorization']
-        query_string = event['queryStringParameters']
-        if 'filter' in query_string.keys():
-            filter_option = query_string['filter']
-        else:
-            filter_option = None
     except KeyError as e:
         return {
             'statusCode': 400,
@@ -35,7 +20,7 @@ def lambda_handler(event, context):
 
     try:
 
-        info = get_listing_info(user_id, filter_option)
+        info = get_purchase_info(user_id)
 
         return {
             'statusCode': 200,
@@ -53,27 +38,19 @@ def lambda_handler(event, context):
             })
         }
 
-def get_listing_info(seller_user_id, filter_option=None):
-    from DatabaseActions import get_listings, get_ticket_info
+def get_purchase_info(buyer_user_id):
+    from DatabaseActions import get_purchases, get_ticket_info
 
-    listings = get_listings(seller_user_id)
+    purchases = get_purchases(buyer_user_id)
 
     response = {}
 
     loaded_tickets = []
 
-    for listing in listings:
-        ask_id = listing[0]
-        price = listing[1]
-        ticket_id = listing[2]
-        fulfilled = listing[3] == b'\x01'
-        listed = listing[4] == b'\x01'
-
-        if filter_option is not None:
-            if filter_option == 'sold' and not fulfilled:
-                continue
-            elif filter_option == 'unsold' and fulfilled:
-                continue
+    for purchase in purchases:
+        ask_id = purchase[0]
+        price = purchase[1]
+        ticket_id = purchase[2]
 
         if ticket_id not in loaded_tickets:
             loaded_tickets.append(ticket_id)
@@ -99,14 +76,12 @@ def get_listing_info(seller_user_id, filter_option=None):
             if fixr_ticket_id not in response[fixr_event_id]['tickets']:
                 response[fixr_event_id]['tickets'][fixr_ticket_id] = {
                     'ticket_name': ticket_name,
-                    'listings': []
+                    'purchases': []
                 }
 
-        response[fixr_event_id]['tickets'][fixr_ticket_id]['listings'].append({
+        response[fixr_event_id]['tickets'][fixr_ticket_id]['purchases'].append({
             'ask_id': ask_id,
-            'price': price,
-            'fulfilled': fulfilled,
-            'listed': listed
+            'price': price
         })
 
     return response

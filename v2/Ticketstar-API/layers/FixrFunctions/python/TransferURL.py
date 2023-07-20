@@ -1,10 +1,10 @@
-
 """
 
 This file will contain functions that are to do with transfer urls.
 
 """
 from FixrExceptions import FixrApiException
+from FixrAccount import FixrAccount
 import json
 import requests
 import logging
@@ -14,7 +14,6 @@ logger.setLevel(logging.INFO)
 
 
 def verify_transfer_url(transfer_url, fixr_event_id, fixr_ticket_id):
-
     response = requests.get(transfer_url)
 
     if not response.ok:
@@ -25,7 +24,7 @@ def verify_transfer_url(transfer_url, fixr_event_id, fixr_ticket_id):
         search_term = "pageProps"
 
         index = response.text.index(search_term)
-        text = response.text[index + len(search_term) + 2: ]
+        text = response.text[index + len(search_term) + 2:]
 
         open_brackets = 0
         close_brackets = 0
@@ -76,3 +75,10 @@ def claim_ticket(transfer_url, ticket_id):
 
         return account_id, ticket_reference
 
+
+def get_transfer_url(fixr_username, fixr_password, ticket_reference):
+    with requests.session() as s:
+        account = FixrAccount(s, fixr_username, fixr_password)
+        transfer_url = account.get_transfer_url(ticket_reference)
+
+        return transfer_url
