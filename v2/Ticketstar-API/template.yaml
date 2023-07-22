@@ -201,6 +201,22 @@ Resources:
             Path: /listings/reserve
             Method: post
 
+  FulfillListingFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/Listings
+      Handler: FulfillListing.lambda_handler
+      Layers:
+        - !Ref DatabaseLayer
+      Policies:
+        - AWSLambdaBasicExecutionRole
+      Events:
+        TicketstarApi:
+          Type: Api
+          Properties:
+            Path: /listings/fulfill
+            Method: post
+
   VerifyTransferUrl:
     Type: AWS::Serverless::Function
     Properties:
@@ -291,6 +307,8 @@ Resources:
       Handler: GetListings.lambda_handler
       Layers:
         - !Ref DatabaseLayer
+        - !Ref FixrLayer
+        - !Ref ExceptionsLayer
       Policies:
         - AWSLambdaBasicExecutionRole
       Events:
@@ -307,6 +325,8 @@ Resources:
       Handler: GetPurchases.lambda_handler
       Layers:
         - !Ref DatabaseLayer
+        - !Ref FixrLayer
+        - !Ref ExceptionsLayer
       Policies:
         - AWSLambdaBasicExecutionRole
       Events:
@@ -314,6 +334,22 @@ Resources:
           Type: Api
           Properties:
             Path: /purchases
+            Method: get
+
+  CheckListingEditableFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/Listings
+      Handler: CheckListingEditable.lambda_handler
+      Layers:
+        - !Ref DatabaseLayer
+      Policies:
+        - AWSLambdaBasicExecutionRole
+      Events:
+        TicketstarApi:
+          Type: Api
+          Properties:
+            Path: /CheckListingEditable/{ask_id}
             Method: get
 
   GetTransferUrlFunction:
@@ -333,6 +369,24 @@ Resources:
           Properties:
             Path: /transfers/{ask_id}
             Method: get
+
+  PostPaymentSheetFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/Payments
+      Handler: PaymentSheet.lambda_handler
+      Layers:
+        - !Ref DatabaseLayer
+        - !Ref ExceptionsLayer
+        - !Ref FixrLayer
+      Policies:
+        - AWSLambdaBasicExecutionRole
+      Events:
+        TicketstarApi:
+          Type: Api
+          Properties:
+            Path: /payment-sheet
+            Method: post
 
   ExceptionsLayer:
     Type: AWS::Serverless::LayerVersion

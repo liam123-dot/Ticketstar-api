@@ -182,7 +182,12 @@ def filter_ticket_asks(asks, user_id):
             current_time = round(time.time())
             if ticket['reserve_timeout'] < current_time:
                 ticket['reserved'] = False
-            elif ticket['buyer_user_id'] != user_id:
+            elif ticket['buyer_user_id'] == user_id:
+                cheapest_ticket = {
+                    'ask_id': ticket['ask_id'],
+                    'cheapest': index == 0,
+                    'ask_price': ticket['price'],
+                }
                 break
 
         if ticket['seller_user_id'] != user_id and not ticket['reserved']:

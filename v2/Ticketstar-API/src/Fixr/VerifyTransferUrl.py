@@ -60,7 +60,7 @@ def lambda_handler(event, context):
             }
 
     except FixrExceptions.FixrApiException as e:
-        logger.error("FixrAPI error when verifying a transferURL, transfer_url: %s, error: %s", transfer_url, e)
+        logger.error("FixrAPI error when verifying a transferURL, transfer_url: %s, error: %s", transfer_url, str(e))
         return {
             'statusCode': 500,
             'body': json.dumps({
@@ -68,7 +68,7 @@ def lambda_handler(event, context):
             })
         }
     except Exception as e:
-        logger.error("Error when verifying transfer url, transfer_url: %s, error: %s", transfer_url, e)
+        logger.error("Error when verifying transfer url, transfer_url: %s, error: %s", transfer_url, str(e))
         return {
             'statusCode': 500,
             'body': json.dumps({

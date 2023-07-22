@@ -88,7 +88,7 @@ def get_asks_by_fixr_ids(fixr_event_id, fixr_ticket_id):
 
 
 def get_ask(ask_id):
-    query = """SELECT price, fulfilled, reserved, buyer_user_id, reserve_timeout FROM asks where ask_id=%s """
+    query = """SELECT price, fulfilled, reserved, buyer_user_id, reserve_timeout, seller_user_id FROM asks where ask_id=%s """
 
     try:
         with Database() as database:
@@ -104,7 +104,8 @@ def get_ask(ask_id):
             'fulfilled': ask[1] == b'\x01',
             'reserved': ask[2] == b'\x01',
             'buyer_user_id': ask[3],
-            'reserve_timeout': ask[4]
+            'reserve_timeout': ask[4],
+            'seller_user_id': ask[5]
         }
 
         return ask
@@ -222,7 +223,7 @@ def create_ask(seller_user_id, price, real_ticket_id, ticket_id):
 
 def get_purchases(user_id):
     sql = """
-    SELECT ask_id, price, ticket_id FROM asks 
+    SELECT ask_id, price, ticket_id, claimed, real_ticket_id FROM asks 
     WHERE buyer_user_id=%s AND fulfilled=1
     """
     try:
@@ -236,7 +237,7 @@ def get_purchases(user_id):
 
 def get_listings(user_id):
     sql = """
-    SELECT ask_id, price, ticket_id, fulfilled, listed FROM asks
+    SELECT ask_id, price, ticket_id, fulfilled, listed, real_ticket_id FROM asks
     WHERE seller_user_id=%s
     """
     try:
@@ -344,7 +345,7 @@ def get_fixr_account_details_from_real_ticket_id(real_ticket_id):
             results = database.execute_select_query(sql, (real_ticket_id, ))
 
         account_id = results[0][0]
-        return get_fixr_account_details_from_account_id(account_id)
+        return account_id, get_fixr_account_details_from_account_id(account_id)
     except Exception as e:
         raise DatabaseException(e)
 
@@ -375,4 +376,102 @@ def get_real_ticket_by_ask_id(ask_id):
         return get_real_ticket_details(real_ticket_id)
     except Exception as e:
         raise DatabaseException(e)
+
+
+def get_ticket_ownership(real_ticket_id):
+    sql = """
+    SELECT ownership_verified, account_id, ticket_reference FROM realtickets WHERE real_ticket_id=%s
+    """
+    try:
+        with Database() as database:
+            results = database.execute_select_query(sql, (real_ticket_id, ))
+
+        results = results[0]
+        return results
+    except Exception as e:
+        raise DatabaseException(e)
+
+
+def update_ticket_ownership(real_ticket_id, ownership):
+    sql = """
+    UPDATE realtickets SET ownership_verified=%s WHERE real_ticket_id=%s
+    """
+
+    try:
+        with Database() as database:
+            database.execute_update_query(sql, (ownership, real_ticket_id))
+    except Exception as e:
+        raise DatabaseException(e)
+
+
+def remove_relationship(account_id, ticket_id):
+    sql = """
+    UPDATE currentaccountrelationships 
+    SET quantity = quantity - 1 
+    WHERE account_id = %s AND ticket_id = %s;
+    """
+    try:
+        with Database() as database:
+            database.execute_update_query(sql, (account_id, ticket_id))
+    except Exception as e:
+        raise DatabaseException(e)
+
+
+def get_ticket_reference_by_real_ticket_id(real_ticket_id):
+    sql = """
+    SELECT ticket_reference FROM realtickets WHERE real_ticket_id=%s
+    """
+    try:
+        with Database() as database:
+            result = database.execute_select_query(sql, (real_ticket_id, ))
+
+        return result[0][0]
+    except Exception as e:
+        raise DatabaseException(e)
+
+
+def mark_ask_as_claimed(ask_id):
+    sql = """
+    UPDATE asks SET claimed=1 WHERE ask_id=%s
+    """
+    try:
+        with Database() as database:
+            database.execute_update_query(sql, (ask_id, ))
+    except Exception as e:
+        raise DatabaseException(e)
+
+
+def get_customer(user_id):
+    sql = "SELECT customer_id FROM stripe WHERE user_id=%s"
+    try:
+        with Database() as database:
+            result = database.execute_select_query(sql, (user_id, ))
+
+        return result
+    except Exception as e:
+        raise DatabaseException(e)
+
+
+def create_customer(user_id, stripe_id):
+    sql = "INSERT INTO stripe(user_id, customer_id) VALUES(%s, %s)"
+
+    try:
+        with Database() as database:
+            result = database.execute_insert_query(sql, (user_id, stripe_id))
+
+        return result
+    except Exception as e:
+        raise DatabaseException(e)
+
+def fulfill_listing(user_id, ask_id):
+    sql = "UPDATE asks SET buyer_user_id=%s, fulfilled=1 where ask_id=%s"
+
+    try:
+        with Database() as database:
+            result = database.execute_insert_query(sql, (user_id, ask_id))
+
+        return result
+    except Exception as e:
+        raise DatabaseException(e)
+
 

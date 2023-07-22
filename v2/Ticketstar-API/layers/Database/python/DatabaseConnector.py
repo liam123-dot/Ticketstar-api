@@ -5,8 +5,6 @@ import base64
 import os
 import logging
 
-from DatabaseException import DatabaseException
-
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 

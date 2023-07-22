@@ -51,7 +51,18 @@ def lambda_handler(event, context):
 
         ticket_id = get_ticket_id(fixr_event_id, fixr_ticket_id)
 
-        account_id, ticket_reference = claim_ticket(transfer_url, ticket_id)
+        try:
+
+            account_id, ticket_reference = claim_ticket(transfer_url, ticket_id)
+
+        except Exception:
+            return {
+                'statusCode': 401,
+                'body': json.dumps({
+                    'message': "Error claiming transfer url, please check is it still valid",
+                    'reason': 'TransferURL'
+                })
+            }
 
         relationship_exists = check_relationship_exists(account_id, ticket_id)
 

@@ -90,6 +90,14 @@ def lambda_handler(event, context):
 
     try:
 
+        if ask['fulfilled']:
+            return {
+                'statusCode': 400,
+                'body': json.dumps({
+                    'message': "listing has been fulfilled",
+                    'reason': 'ListingFulfilled'
+                })
+            }
         if ask['reserved']:
             if ask['buyer_user_id'] == user_id:
                 return reserve_ask(ask_id, user_id)
@@ -103,14 +111,6 @@ def lambda_handler(event, context):
                         'reason': 'ListingReserved'
                     })
                 }
-        if ask['fulfilled']:
-            return {
-                'statusCode': 400,
-                'body': json.dumps({
-                    'message': "listing has been fulfilled",
-                    'reason': 'ListingFulfilled'
-                })
-            }
 
         return reserve_ask(ask_id, user_id)
 

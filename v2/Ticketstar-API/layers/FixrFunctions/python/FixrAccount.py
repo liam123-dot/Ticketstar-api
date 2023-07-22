@@ -91,11 +91,26 @@ class FixrAccount:
             }
             response = self.session.post(url, headers=headers)
 
-            print(response.text)
-
             if not response.ok:
                 raise FixrApiException("Invalid fixr response")
 
             transfer_url = response.json()['transfer_url']
 
             return transfer_url
+
+    def check_ownership(self, ticket_reference):
+        url = "https://api.fixr.co/api/v2/app/booking?only=future&limit=999"
+        headers = {
+            "Authorization": 'Token ' + self.auth_token
+        }
+        response = self.session.get(url, headers=headers)
+        if not response.ok:
+            raise FixrApiException
+
+        data = response.json()['data']
+
+        for ticket in data:
+            if ticket['reference_id'] == ticket_reference:
+                return True
+
+        return False

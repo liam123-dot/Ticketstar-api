@@ -2,6 +2,8 @@
 import json
 import logging
 
+import requests
+
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
@@ -17,6 +19,14 @@ def lambda_handler(event, context):
                 'message': 'Invalid requests parameters: ' + str(e)
             })
         }
+    except Exception as e:
+        logger.error("Exception get_purchases, error: %s", str(e))
+        return {
+            'statusCode': 500,
+            'body': json.dumps({
+                'message': 'Internal Server Error'
+            })
+        }
 
     try:
 
@@ -30,7 +40,7 @@ def lambda_handler(event, context):
         }
 
     except Exception as e:
-        logger.error("error getting listing/purchase error: %s", e)
+        logger.error("error getting purchase error: %s", str(e))
         return {
             'statusCode': 500,
             'body': json.dumps({
@@ -39,49 +49,68 @@ def lambda_handler(event, context):
         }
 
 def get_purchase_info(buyer_user_id):
-    from DatabaseActions import get_purchases, get_ticket_info
+    from DatabaseActions import get_purchases, get_ticket_info, get_fixr_account_details_from_real_ticket_id, get_ticket_reference_by_real_ticket_id, mark_ask_as_claimed, remove_relationship, get_fixr_account_details_from_account_id
+    from FixrAccount import FixrAccount
 
     purchases = get_purchases(buyer_user_id)
 
     response = {}
 
-    loaded_tickets = []
-
     for purchase in purchases:
         ask_id = purchase[0]
         price = purchase[1]
         ticket_id = purchase[2]
+        claimed = purchase[3] == b'\x01'
+        real_ticket_id = purchase[4]
 
-        if ticket_id not in loaded_tickets:
-            loaded_tickets.append(ticket_id)
-            ticket_info = get_ticket_info(ticket_id)[0]
+        ticket_info = get_ticket_info(ticket_id)[0]
 
-            ticket_name = ticket_info[0]
-            event_name = ticket_info[1]
-            open_time = ticket_info[2]
-            close_time = ticket_info[3]
-            image_url = ticket_info[4]
-            fixr_event_id = ticket_info[5]
-            fixr_ticket_id = ticket_info[6]
+        ticket_name = ticket_info[0]
+        event_name = ticket_info[1]
+        open_time = ticket_info[2]
+        close_time = ticket_info[3]
+        image_url = ticket_info[4]
+        fixr_event_id = ticket_info[5]
+        fixr_ticket_id = ticket_info[6]
 
-            if fixr_event_id not in response.keys():
-                response[fixr_event_id] = {
-                    'event_name': event_name,
-                    'open_time': open_time,
-                    'close_time': close_time,
-                    'image_url': image_url,
-                    'tickets': {}
-                }
+        if fixr_event_id not in response.keys():
+            response[fixr_event_id] = {
+                'event_name': event_name,
+                'open_time': open_time,
+                'close_time': close_time,
+                'image_url': image_url,
+                'tickets': {}
+            }
 
-            if fixr_ticket_id not in response[fixr_event_id]['tickets']:
-                response[fixr_event_id]['tickets'][fixr_ticket_id] = {
-                    'ticket_name': ticket_name,
-                    'purchases': []
-                }
+        if fixr_ticket_id not in response[fixr_event_id]['tickets']:
+            response[fixr_event_id]['tickets'][fixr_ticket_id] = {
+                'ticket_name': ticket_name,
+                'purchases': []
+            }
+
+        if not claimed:
+            account_id, account_details = get_fixr_account_details_from_real_ticket_id(real_ticket_id)
+
+            account_details = account_details[0]
+            fixr_username = account_details[0]
+            fixr_password = account_details[1]
+            ticket_reference = get_ticket_reference_by_real_ticket_id(real_ticket_id)
+
+            with requests.session() as s:
+
+                account = FixrAccount(s, fixr_username, fixr_password)
+
+                ticket_owned = account.check_ownership(ticket_reference)
+
+                if not ticket_owned:
+                    mark_ask_as_claimed(ask_id)
+                    remove_relationship(account_id, ticket_id)
+                    claimed = True
 
         response[fixr_event_id]['tickets'][fixr_ticket_id]['purchases'].append({
             'ask_id': ask_id,
-            'price': price
+            'price': price,
+            'claimed': claimed
         })
 
     return response
