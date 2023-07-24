@@ -12,6 +12,9 @@ events /event/{event_id}
 import json
 import logging
 
+import boto3
+from botocore.exceptions import ClientError
+
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
@@ -49,8 +52,6 @@ def get_event(event, context):
         query_string_parameters = event['queryStringParameters']
 
         user_id = query_string_parameters['user_id']
-
-        logger.info(f"User id: {user_id}")
 
     except KeyError as e:
 

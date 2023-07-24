@@ -30,6 +30,7 @@ each tickets object should already have assessed what that user should display:
 }
 
 """
+import json
 
 from FixrExceptions import FixrApiException
 
@@ -85,73 +86,136 @@ def search(search_query, limit=None, offset=None):
 
 
 def get_event_info(event_id, user_id):
-    from DatabaseActions import get_asks_by_fixr_ids
+    from DatabaseActions import get_asks_by_ticket_id, get_event_tickets, create_ticket_id
     from DatabaseException import DatabaseException
 
-    event_url = "https://api.fixr.co/api/v2/app/event/" + str(event_id) + "?"
+    event_info = get_event_tickets(event_id)
 
-    response = requests.get(event_url)
+    if len(event_info) == 0:
+        event_url = "https://api.fixr.co/api/v2/app/event/" + str(event_id) + "?"
 
-    if not response.ok:
-        logger.error("Response error from fixr. Response code: %s, Response text: %s", response.status_code,
-                     response.text)
+        response = requests.get(event_url)
 
-        raise FixrApiException("Bad fixr response")
+        if not response.ok:
+            logger.error("Response error from fixr. Response code: %s, Response text: %s", response.status_code,
+                         response.text)
 
-    try:
-
-        data = response.json()
-
-    except Exception as e:
-        raise FixrApiException(e)
-
-    event_id = data['id']
-
-    ticket_parameters_to_pull = ['id', 'name', 'price', 'booking_fee', 'promo_code_required', 'entry_count', 'currency',
-                                 'max_per_user', 'sold_out', 'not_yet_valid', 'expired', 'last_entry']
-
-    tickets = []
-
-    for ticket in data['tickets']:
-        ticket_id = ticket['id']
-
-        ticket_info = {}
-
-        for parameter in ticket_parameters_to_pull:
-            try:
-                ticket_info[parameter] = ticket[parameter]
-            except KeyError as e:
-                logger.error("Error with parameter: %s. Error given: %s, ticket data: %s", parameter, e, ticket)
+            raise FixrApiException("Bad fixr response")
 
         try:
 
-            ticket_id, ticket_asks = get_asks_by_fixr_ids(event_id, ticket_id)
+            data = response.json()
 
-        except DatabaseException:
+        except Exception as e:
+            raise FixrApiException(e)
 
-            ticket_asks = None
+        event_parameters_to_pull = ['id', 'name', 'open_time', 'close_time', 'venue', 'image_url']
 
-        ticket_info['fixr_id'] = ticket_info['id']
-        ticket_info['id'] = ticket_id
+        event = {}
 
-        ticket_info['listing'] = filter_ticket_asks(ticket_asks, user_id)
+        for event_parameter in event_parameters_to_pull:
+            try:
+                if event_parameter == 'id':
+                    event['fixr_id'] = data['id']
+                elif event_parameter == 'image_url':
+                    event['image_url'] = data['event_image']
+                else:
+                    event[event_parameter] = data[event_parameter]
+            except KeyError as e:
+                logger.error("Error with event parameter: %s. Error given: %s, ticket data: %s", event_parameter, e, data)
 
-        logger.info(ticket_info)
+        ticket_parameters_to_pull = ['id', 'name', 'price', 'booking_fee', 'promo_code_required', 'entry_count',
+                                     'max_per_user', 'sold_out', 'last_entry']
+        tickets = []
 
-        tickets.append(ticket_info)
+        for ticket in data['tickets']:
+            ticket_info = {}
 
-    tickets = sorted(tickets, key=lambda d: d['id'])
+            for parameter in ticket_parameters_to_pull:
+                try:
 
-    event_parameters_to_pull = ['id', 'name', 'open_time', 'close_time', 'sold_out', 'venue']
+                    if parameter == 'id':
+                        ticket_info['fixr_id'] = ticket['id']
+                    else:
+                        ticket_info[parameter] = ticket[parameter]
 
-    event = {}
+                except KeyError as e:
+                    logger.error("Error with ticket parameter: %s. Error given: %s, ticket data: %s", parameter, e, ticket)
 
-    for parameter in event_parameters_to_pull:
-        event[parameter] = data[parameter]
+            ticket_id = create_ticket_id(event, ticket_info)
+            ticket_info['id'] = ticket_id
+            ticket_info['listing'] = None
 
-    event['tickets'] = tickets
+            tickets.append(ticket_info)
 
-    return event
+        tickets = sorted(tickets, key=lambda d: d['id'])
+
+        event['tickets'] = tickets
+
+        return event
+
+    else:
+
+        import concurrent.futures
+
+        event = {}
+
+        event_attribute_indexes = {
+            'fixr_event_id': 0,
+            'event_name': 1,
+            'open_time': 2,
+            'close_time': 3,
+            'venue_name': 4,
+            'image_url': 5,
+        }
+
+        ticket_attribute_indexes = {
+            'fixr_ticket_id': 6,
+            'ticket_id': 7,
+            'ticket_name': 8,
+            'price': 9,
+            'booking_fee': 10,
+            'promo_code_required': 11,
+            'entry_count': 12,
+            'max_per_user': 13,
+            'sold_out': 14,
+            'last_entry': 15
+        }
+
+        def process_data(i, data):
+            if i == 0:
+                for key in event_attribute_indexes.keys():
+                    index = event_attribute_indexes[key]
+                    event[key] = data[index]
+            ticket = {}
+            for key in ticket_attribute_indexes.keys():
+                index = ticket_attribute_indexes[key]
+                if key == 'ticket_id':
+                    ticket['id'] = data[index]
+                else:
+                    ticket[key] = data[index]
+
+            ticket_asks = get_asks_by_ticket_id(ticket['id'])
+
+            ticket['listing'] = filter_ticket_asks(ticket_asks, user_id)
+            ticket['name'] = ticket['ticket_name']
+
+            logger.info(ticket)
+
+            return ticket
+
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            future_to_ticket = {executor.submit(process_data, i, data): i for i, data in enumerate(event_info)}
+            tickets = []
+            for future in concurrent.futures.as_completed(future_to_ticket):
+                ticket = future.result()
+                tickets.append(ticket)
+
+        tickets = sorted(tickets, key=lambda d: d['id'])
+
+        event['tickets'] = tickets
+
+        return event
 
 
 def filter_ticket_asks(asks, user_id):

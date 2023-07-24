@@ -1,6 +1,7 @@
 import json
 import logging
 from DatabaseActions import get_customer, create_customer
+from DatabaseActions import get_ask, get_seller
 import stripe as stripe
 
 logger = logging.getLogger()
@@ -16,6 +17,7 @@ def lambda_handler(event, context):
         user_id = body['user_id']
         user_phone_number = body['user_phone_number']
         user_name = body['user_name']
+        ask_id = body['ask_id']
 
     except KeyError as e:
         return {
@@ -37,7 +39,11 @@ def lambda_handler(event, context):
 
         results = get_customer(user_id)
 
-        stripe.api_key = 'sk_test_51NJwFSDXdklEKm0RDJhFhwEBcJLEPOtBtdeovg18JHIIu4HxkXLge19WAPvUap3V0drBuJOgrvccYNgCFaLfsW3x00ME3KwKgi'
+        seller_id = get_ask(ask_id)['seller_user_id']
+
+        seller_stripe_id = get_seller(seller_id)[0][0]
+
+        stripe.api_key = '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'
 
         if len(results) == 0:
             new_customer = stripe.Customer.create(
@@ -56,6 +62,7 @@ def lambda_handler(event, context):
             customer=stripe_id,
             stripe_version='2022-11-15',
         )
+        print(seller_stripe_id)
         payment_intent = stripe.PaymentIntent.create(
             amount=price,
             currency='gbp',
@@ -63,7 +70,11 @@ def lambda_handler(event, context):
             automatic_payment_methods={
                 'enabled': True,
             },
+            application_fee_amount=10,
+            transfer_data={'destination': seller_stripe_id}
         )
+
+        print(payment_intent)
 
         return {
             'statusCode': 200,
@@ -71,7 +82,7 @@ def lambda_handler(event, context):
                 'paymentIntent': payment_intent.client_secret,
                 'ephemeralKey': ephemeral_key.secret,
                 'customer': stripe_id,
-                'publishableKey': 'pk_test_51NJwFSDXdklEKm0R8JRHkohXh2qEKG57G837zZCKOUFXlyjTNkHa2XOSUa0zhN2rQaVkd9NPTykrdC9IRnoBlZ7Z00uMUWz549'
+                'publishableKey': 'pk_live_51NJwFSDXdklEKm0RH9UR7RgQ2kPsEQvbFaSJKVl5PnBMNWVIVT88W4wMIo8IIm9A6TvKOBOVV4xPSN9tvPMHAZOJ00uA9XSbKi'
             })
         }
 

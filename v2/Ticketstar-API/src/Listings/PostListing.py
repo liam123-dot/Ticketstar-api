@@ -59,7 +59,7 @@ def lambda_handler(event, context):
             return {
                 'statusCode': 401,
                 'body': json.dumps({
-                    'message': "Error claiming transfer url, please check is it still valid",
+                    'message': "Error claiming transfer url, please check it is still valid",
                     'reason': 'TransferURL'
                 })
             }

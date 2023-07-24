@@ -5,17 +5,28 @@ import base64
 import os
 import logging
 
+from botocore.exceptions import ClientError
+
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
-host = os.environ.get("HOST")
-user = os.environ.get("USER")
-password = os.environ.get("PASSWORD")
-database = os.environ.get("DATABASE")
-
-
 def connect_to_db():
     try:
+        # database_info = json.loads(get_secret())
+
+        # host = database_info['host']
+        # database = database_info['dbname']
+        # username = database_info['username']
+        # password = database_info['password']
+
+        # connection = pymysql.connect(
+        #     host=host,
+        #     database=database,
+        #     user=username,
+        #     password=password,
+        #     ssl_ca='/etc/pki/tls/certs/ca-bundle.crt'
+        # )
+
         connection = pymysql.connect(
             # host.docker.internal
             host='host.docker.internal',
@@ -23,29 +34,42 @@ def connect_to_db():
             password='Redyred358!',
             db='ticketstartest'
         )
+
         return connection
     except Exception as e:
         logger.error("Error occurred while attempting to connect to database, error: %s", e)
         return None
 
 
+def get_secret():
+
+    secret_name = "PlanetScaleDatabaseCreds"
+    region_name = "eu-west-2"
+
+    # Create a Secrets Manager client
+    session = boto3.session.Session()
+    client = session.client(
+        service_name='secretsmanager',
+        region_name=region_name
+    )
+
+    try:
+        get_secret_value_response = client.get_secret_value(
+            SecretId=secret_name
+        )
+    except ClientError as e:
+        # For a list of exceptions thrown, see
+        # https://docs.aws.amazon.com/secretsmanager/latest/apireference/API_GetSecretValue.html
+        raise e
+
+    # Decrypts secret using the associated KMS key.
+    secret = get_secret_value_response['SecretString']
+    return secret
+
+
 class Database:
     def __init__(self,):
-        # self.secret_name = secret_name
-        # self.credentials = self.get_secret()
         self.connection = connect_to_db()
-
-    def get_secret(self):
-        session = boto3.session.Session()
-        client = session.client(
-            service_name='secretsmanager'
-        )
-        get_secret_value_response = client.get_secret_value(SecretId=self.secret_name)
-        if 'SecretString' in get_secret_value_response:
-            secret = get_secret_value_response['SecretString']
-        else:
-            secret = base64.b64decode(get_secret_value_response['SecretBinary'])
-        return json.loads(secret)
 
     def execute_select_query(self, query, args=None):
         with self.connection.cursor() as cursor:

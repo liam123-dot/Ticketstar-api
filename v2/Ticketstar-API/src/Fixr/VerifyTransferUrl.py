@@ -20,8 +20,8 @@ def lambda_handler(event, context):
 
         body = json.loads(event['body'])
         transfer_url = body['transfer_url']
-        fixr_event_id = body['fixr_event_id']
-        fixr_ticket_id = body['fixr_ticket_id']
+        fixr_event_id = int(body['fixr_event_id'])
+        fixr_ticket_id = int(body['fixr_ticket_id'])
 
     except json.JSONDecodeError as e:
         return {
@@ -37,6 +37,15 @@ def lambda_handler(event, context):
             'body': json.dumps({
                 'message': 'Missing or incorrect body item: ' + str(e),
                 'reason': 'KeyError'
+            })
+        }
+    except TypeError as e:
+        logger.error("Type error: %s", str(e))
+        return {
+            'statusCode': 400,
+            'body': json.dumps({
+                'message': 'Invalid parameters',
+                'reason': 'TypeError'
             })
         }
 

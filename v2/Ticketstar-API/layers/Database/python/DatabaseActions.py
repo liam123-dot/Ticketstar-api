@@ -24,13 +24,7 @@ def get_ticket_id(fixr_event_id, fixr_ticket_id):
 
             if len(result) == 0:
 
-                insert_ticket_query = "INSERT INTO tickets(fixr_ticket_id, fixr_event_id) VALUES (%s, %s)"
-
-                ticket_id = database.execute_insert_query(insert_ticket_query, (fixr_ticket_id, fixr_event_id))
-
-                from UpdateTickets import update
-
-                update()
+                return -1
 
             else:
 
@@ -43,8 +37,90 @@ def get_ticket_id(fixr_event_id, fixr_ticket_id):
         raise DatabaseException(e)
 
 
+def create_ticket_id(event, ticket):
+    ticket_sql = """
+    INSERT INTO tickets (
+        fixr_ticket_id, 
+        fixr_event_id, 
+        ticket_name, 
+        event_name, 
+        venue_name, 
+        open_time, 
+        close_time, 
+        image_url, 
+        entry_count, 
+        price, 
+        max_per_user, 
+        sold_out, 
+        promo_code_required, 
+        booking_fee, 
+        last_entry
+    ) 
+    VALUES (
+        %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
+    )
+    """
+
+    ticket_values = (
+        ticket['fixr_id'],
+        event['fixr_id'],
+        ticket['name'],
+        event['name'],
+        event['venue']['name'],
+        event['open_time'],
+        event['close_time'],
+        event['image_url'],
+        ticket['entry_count'],
+        ticket['price'],
+        ticket['max_per_user'],
+        ticket['sold_out'],
+        ticket['promo_code_required'],
+        ticket['booking_fee'],
+        ticket['last_entry']
+    )
+
+    try:
+        with Database() as database:
+            ticket_id = database.execute_insert_query(ticket_sql, ticket_values)
+            return ticket_id
+    except Exception as e:
+        raise DatabaseException(e)
+
+
+def get_event_tickets(fixr_event_id):
+    sql = """
+     SELECT 
+      fixr_event_id, 
+      event_name, 
+      open_time, 
+      close_time, 
+      venue_name, 
+      image_url,
+      fixr_ticket_id, 
+      ticket_id, 
+      ticket_name, 
+      price, 
+      booking_fee, 
+      promo_code_required, 
+      entry_count, 
+      max_per_user, 
+      sold_out, 
+      last_entry
+    FROM 
+      tickets
+    WHERE fixr_event_id=%s"""
+
+    try:
+        with Database() as database:
+            results = database.execute_select_query(sql, (fixr_event_id, ))
+
+            return results
+    except Exception as e:
+        raise DatabaseException(e)
+
+
 def get_asks_by_ticket_id(ticket_id):
-    get_asks_query = """SELECT ask_id, price, seller_user_id, reserved, reserve_timeout, buyer_user_id from Asks
+    get_asks_query = """SELECT ask_id, price, seller_user_id, reserved, reserve_timeout, buyer_user_id from asks
     WHERE ticket_id=%s AND fulfilled=0 and listed=1 ORDER BY price ASC"""
 
     try:
@@ -79,12 +155,6 @@ def get_asks_by_ticket_id(ticket_id):
     except Exception as e:
         logger.error("Error get_asks_by_ticket_id, error: %s", e)
         raise DatabaseException(e)
-
-
-def get_asks_by_fixr_ids(fixr_event_id, fixr_ticket_id):
-    ticket_id = get_ticket_id(fixr_event_id, fixr_ticket_id)
-
-    return ticket_id, get_asks_by_ticket_id(ticket_id)
 
 
 def get_ask(ask_id):
@@ -130,17 +200,17 @@ def reserve_ask(ask_id, user_id, reserve_timeout):
 def get_fixr_account_for_ticket_id(ticket_id):
     query = """
         SELECT fixr_username, fixr_password, account_id
-        FROM fixraccounts
+        FROM FixrAccounts
         WHERE account_id IN (
             SELECT account_id
-            FROM currentaccountrelationships
+            FROM currentAccountRelationships
             WHERE ticket_id = %s AND quantity < ticket_limit
             UNION
             SELECT account_id
-            FROM fixraccounts
+            FROM FixrAccounts
             WHERE account_id NOT IN (
                 SELECT account_id
-                FROM currentaccountrelationships
+                FROM currentAccountRelationships
             )
         )
         LIMIT 1;
@@ -195,8 +265,8 @@ def create_new_relationship(account_id, ticket_id, max_per_user):
 
 def create_real_ticket(ticket_id, account_id, ticket_reference):
     sql = """
-    INSERT INTO realtickets(ticket_id, account_id, ticket_reference)
-    VALUES (%s, %s, %s)
+    INSERT INTO realtickets(ticket_id, account_id, ticket_reference, ownership_verified)
+    VALUES (%s, %s, %s, 1)
     """
 
     try:
@@ -250,7 +320,7 @@ def get_listings(user_id):
 
 def get_ticket_info(ticket_id):
     sql = """SELECT ticket_name, event_name, open_time, close_time, image_url, fixr_event_id, fixr_ticket_id
-    from Tickets WHERE ticket_id=%s"""
+    from tickets WHERE ticket_id=%s"""
 
     try:
         with Database() as database:
@@ -264,7 +334,7 @@ def get_ticket_info(ticket_id):
 
 def get_tickets_to_update():
     sql = """
-    SELECT ticket_id, fixr_ticket_id, fixr_event_id FROM Tickets
+    SELECT ticket_id, fixr_ticket_id, fixr_event_id FROM tickets
     WHERE image_url is NULL
     """
 
@@ -278,7 +348,7 @@ def get_tickets_to_update():
 
 def update_ticket_info(ticket_name, event_name, open_time, close_time, image_url, ticket_id):
     sql = """
-    UPDATE Tickets SET ticket_name=%s, event_name=%s, open_time=%s, close_time=%s, image_url=%s
+    UPDATE tickets SET ticket_name=%s, event_name=%s, open_time=%s, close_time=%s, image_url=%s
     WHERE ticket_id=%s
     """
     try:
@@ -406,7 +476,7 @@ def update_ticket_ownership(real_ticket_id, ownership):
 
 def remove_relationship(account_id, ticket_id):
     sql = """
-    UPDATE currentaccountrelationships 
+    UPDATE currentAccountRelationships 
     SET quantity = quantity - 1 
     WHERE account_id = %s AND ticket_id = %s;
     """
@@ -453,7 +523,8 @@ def get_customer(user_id):
 
 
 def create_customer(user_id, stripe_id):
-    sql = "INSERT INTO stripe(user_id, customer_id) VALUES(%s, %s)"
+    sql = """INSERT INTO stripe(user_id, customer_id) VALUES(%s, %s)
+             ON DUPLICATE KEY UPDATE customer_id = VALUES(customer_id)"""
 
     try:
         with Database() as database:
@@ -462,6 +533,7 @@ def create_customer(user_id, stripe_id):
         return result
     except Exception as e:
         raise DatabaseException(e)
+
 
 def fulfill_listing(user_id, ask_id):
     sql = "UPDATE asks SET buyer_user_id=%s, fulfilled=1 where ask_id=%s"
@@ -475,3 +547,11 @@ def fulfill_listing(user_id, ask_id):
         raise DatabaseException(e)
 
 
+def get_seller(user_id):
+    sql = "SELECT seller_id FROM stripe WHERE user_id=%s"
+    try:
+        with Database() as database:
+            result = database.execute_select_query(sql, (user_id, ))
+            return result
+    except Exception as e:
+        raise DatabaseException(e)
