@@ -9,6 +9,8 @@ need to add functionality to check the account is fully set up before funds are 
 
 """
 import json
+import time
+
 import stripe
 from DatabaseConnector import Database
 from CheckConnectedAccount import check_stripe_account_enabled
@@ -45,7 +47,7 @@ def lambda_handler(event, context):
 
         with Database() as database:
             # query to check if the user already has a stripe seller account
-            sql = "SELECT seller_id FROM stripe WHERE user_id=%s"
+            sql = "SELECT seller_id FROM stripe WHERE user_id=%s and seller_id is not NULL"
             results = database.execute_select_query(sql, (user_id, ))
             if len(results) == 0:
                 logger.info("Creating account for user: " + str(user_id))
@@ -99,7 +101,7 @@ def lambda_handler(event, context):
 
 
 def generate_account_link(account_id, user_id):
-    stripe.api_key = "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"
+    stripe.api_key = "sk_test_51NJwFSDXdklEKm0RDJhFhwEBcJLEPOtBtdeovg18JHIIu4HxkXLge19WAPvUap3V0drBuJOgrvccYNgCFaLfsW3x00ME3KwKgi"
 
     logger.info("Creating account onboarding link for user: " + str(user_id))
 
@@ -114,7 +116,7 @@ def generate_account_link(account_id, user_id):
 
 
 def create_stripe_account(first_name, last_name, email, phone_number):
-    stripe.api_key = "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"
+    stripe.api_key = "sk_test_51NJwFSDXdklEKm0RDJhFhwEBcJLEPOtBtdeovg18JHIIu4HxkXLge19WAPvUap3V0drBuJOgrvccYNgCFaLfsW3x00ME3KwKgi"
 
     account = stripe.Account.create(
         type='standard',

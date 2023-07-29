@@ -78,6 +78,8 @@ def search(search_query, limit=None, offset=None):
                 'sold_out': event['is_sold_out']
             })
 
+        sorted(events, key=lambda d: d['open_time'])
+
     except KeyError as e:
         logger.error("Error parsing events, error: %s, data: %s", e, data)
         raise FixrApiException("Invalid response from fixr")
@@ -86,8 +88,8 @@ def search(search_query, limit=None, offset=None):
 
 
 def get_event_info(event_id, user_id):
+    from DatabaseConnector import Database
     from DatabaseActions import get_asks_by_ticket_id, get_event_tickets, create_ticket_id
-    from DatabaseException import DatabaseException
 
     event_info = get_event_tickets(event_id)
 
@@ -128,35 +130,35 @@ def get_event_info(event_id, user_id):
                                      'max_per_user', 'sold_out', 'last_entry']
         tickets = []
 
-        for ticket in data['tickets']:
-            ticket_info = {}
+        with Database() as database:
 
-            for parameter in ticket_parameters_to_pull:
-                try:
+            for ticket in data['tickets']:
+                ticket_info = {}
 
-                    if parameter == 'id':
-                        ticket_info['fixr_id'] = ticket['id']
-                    else:
-                        ticket_info[parameter] = ticket[parameter]
+                for parameter in ticket_parameters_to_pull:
+                    try:
 
-                except KeyError as e:
-                    logger.error("Error with ticket parameter: %s. Error given: %s, ticket data: %s", parameter, e, ticket)
+                        if parameter == 'id':
+                            ticket_info['fixr_id'] = ticket['id']
+                        else:
+                            ticket_info[parameter] = ticket[parameter]
 
-            ticket_id = create_ticket_id(event, ticket_info)
-            ticket_info['id'] = ticket_id
-            ticket_info['listing'] = None
+                    except KeyError as e:
+                        logger.error("Error with ticket parameter: %s. Error given: %s, ticket data: %s", parameter, e, ticket)
 
-            tickets.append(ticket_info)
+                ticket_id = create_ticket_id(database, event, ticket_info)
+                ticket_info['id'] = ticket_id
+                ticket_info['listing'] = None
 
-        tickets = sorted(tickets, key=lambda d: d['id'])
+                tickets.append(ticket_info)
 
-        event['tickets'] = tickets
+            tickets = sorted(tickets, key=lambda d: d['id'])
 
-        return event
+            event['tickets'] = tickets
+
+            return event
 
     else:
-
-        import concurrent.futures
 
         event = {}
 
@@ -182,7 +184,7 @@ def get_event_info(event_id, user_id):
             'last_entry': 15
         }
 
-        def process_data(i, data):
+        def process_data(i, data, database):
             if i == 0:
                 for key in event_attribute_indexes.keys():
                     index = event_attribute_indexes[key]
@@ -195,7 +197,7 @@ def get_event_info(event_id, user_id):
                 else:
                     ticket[key] = data[index]
 
-            ticket_asks = get_asks_by_ticket_id(ticket['id'])
+            ticket_asks = get_asks_by_ticket_id(ticket['id'], database)
 
             ticket['listing'] = filter_ticket_asks(ticket_asks, user_id)
             ticket['name'] = ticket['ticket_name']
@@ -204,12 +206,31 @@ def get_event_info(event_id, user_id):
 
             return ticket
 
-        with concurrent.futures.ThreadPoolExecutor() as executor:
-            future_to_ticket = {executor.submit(process_data, i, data): i for i, data in enumerate(event_info)}
-            tickets = []
-            for future in concurrent.futures.as_completed(future_to_ticket):
-                ticket = future.result()
+        tickets = []
+
+        with Database() as database:
+            for i in range(0, len(event_info)):
+                data = event_info[i]
+                if i == 0:
+                    for key in event_attribute_indexes.keys():
+                        index = event_attribute_indexes[key]
+                        event[key] = data[index]
+                ticket = {}
+                for key in ticket_attribute_indexes.keys():
+                    index = ticket_attribute_indexes[key]
+                    if key == 'ticket_id':
+                        ticket['id'] = data[index]
+                    else:
+                        ticket[key] = data[index]
+
+                ticket_asks = get_asks_by_ticket_id(ticket['id'], database)
+
+                ticket['listing'] = filter_ticket_asks(ticket_asks, user_id)
+                ticket['name'] = ticket['ticket_name']
+
                 tickets.append(ticket)
+
+                logger.info(ticket)
 
         tickets = sorted(tickets, key=lambda d: d['id'])
 

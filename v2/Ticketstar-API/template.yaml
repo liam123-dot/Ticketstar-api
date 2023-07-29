@@ -87,6 +87,70 @@ Resources:
             Path: /authentication/verifyconfirmationcode
             Method: post
 
+  ForgotPasswordFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/Authentication/
+      Handler: ForgotPassword.lambda_handler
+      Environment:
+        Variables:
+          USER_POOL_ID: !Ref UserPoolId
+          CLIENT_ID: !Ref ClientId
+          CLIENT_SECRET: !Ref ClientSecret
+      Policies:
+        - AWSLambdaBasicExecutionRole
+        - AmazonCognitoPowerUser
+      Events:
+        TicketstarApi:
+          Type: Api
+          Properties:
+            Path: /authentication/forgotpassword
+            Method: post
+
+  ConfirmForgotPasswordFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/Authentication/
+      Handler: ConfirmForgotPassword.lambda_handler
+      Environment:
+        Variables:
+          USER_POOL_ID: !Ref UserPoolId
+          CLIENT_ID: !Ref ClientId
+          CLIENT_SECRET: !Ref ClientSecret
+      Policies:
+        - AWSLambdaBasicExecutionRole
+        - AmazonCognitoPowerUser
+      Events:
+        TicketstarApi:
+          Type: Api
+          Properties:
+            Path: /authentication/confirmforgotpassword
+            Method: post
+
+  InitiateEmailVerificationFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/Authentication/
+      Handler: InitiateEmailVerification.lambda_handler
+      Policies:
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - 'ses:SendEmail'
+                - 'ses:SendRawEmail'
+              Resource: '*'
+        - AWSLambdaBasicExecutionRole
+        - SecretsManagerReadWrite
+      Layers:
+        - !Ref DatabaseLayer
+      Events:
+        TicketstarApi:
+          Type: Api
+          Properties:
+            Path: /authentication/initiateemailverification
+            Method: post
+
   GetEventsFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -435,6 +499,23 @@ Resources:
           Properties:
             Path: /CreateConnectedAccount
             Method: post
+
+  GetFeesFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/Payments
+      Handler: GetFees.lambda_handler
+      Layers:
+        - !Ref DatabaseLayer
+      Policies:
+        - AWSLambdaBasicExecutionRole
+        - SecretsManagerReadWrite
+      Events:
+        TicketstarApi:
+          Type: Api
+          Properties:
+            Path: /fees
+            Method: get
 
   ExceptionsLayer:
     Type: AWS::Serverless::LayerVersion

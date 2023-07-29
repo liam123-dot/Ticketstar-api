@@ -38,7 +38,7 @@ def lambda_handler(event, context):
             sql_query = "SELECT seller_id FROM stripe WHERE user_id=%s"
             results = database.execute_select_query(sql_query, (user_id, ))
 
-            if len(results) == 0:
+            if len(results) == 0 or results[0][0] is None:
                 return {
                     'statusCode': 200,
                     'body': json.dumps({
@@ -61,6 +61,7 @@ def lambda_handler(event, context):
                 }
 
     except Exception as e:
+        logger.error(type(e))
         logger.error("Error checking if seller enable: %s", str(e))
         return {
             'statusCode': 500,
@@ -73,6 +74,8 @@ def check_stripe_account_enabled(seller_id):
     stripe.api_key = "sk_test_51NJwFSDXdklEKm0RDJhFhwEBcJLEPOtBtdeovg18JHIIu4HxkXLge19WAPvUap3V0drBuJOgrvccYNgCFaLfsW3x00ME3KwKgi"
 
     account = stripe.Account.retrieve(seller_id)
+
+    logger.info(json.dumps(account, indent=4))
 
     further_action_required = account['requirements']['disabled_reason'] is not None
 

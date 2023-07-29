@@ -7,6 +7,7 @@ This contains many aspect of error handling and verification.
 We need many functions to fulfill this.
 """
 import botocore.exceptions
+from utils import get_secret_hash
 
 """
 SignUpFunction:
@@ -33,7 +34,6 @@ Response from cognito:
 
 """
 from botocore.exceptions import ClientError
-from utils import get_secret_hash, SecretHashGenerationException
 import boto3
 import json
 import os
@@ -202,7 +202,6 @@ def check_phone_number_valid(phone_number):
     response = cognito.list_users(
         UserPoolId=USER_POOL_ID,
         AttributesToGet=[
-            'email',
             'phone_number'
         ],
         Filter=f"phone_number='{phone_number}'"

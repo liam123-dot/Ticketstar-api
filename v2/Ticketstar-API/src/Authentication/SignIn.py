@@ -90,8 +90,8 @@ def lambda_handler(event, context):
 
     except ClientError as e:
         error = e.response['Error']
-        error_code = error['code']
         logger.error('Client error initiate_auth: %s, with event %s', error, event)  # log the error
+        error_code = error['Code']
 
         if error_code == 'UserNotConfirmedException':
             return {

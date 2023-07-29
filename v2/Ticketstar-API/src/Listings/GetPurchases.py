@@ -1,6 +1,7 @@
 
 import json
 import logging
+import time
 
 import requests
 
@@ -12,6 +13,10 @@ def lambda_handler(event, context):
     try:
         headers = event['headers']
         user_id = headers['Authorization']
+
+        query_string_parameters = event['queryStringParameters']
+        filter_ = query_string_parameters['filter']
+
     except KeyError as e:
         return {
             'statusCode': 400,
@@ -30,7 +35,7 @@ def lambda_handler(event, context):
 
     try:
 
-        info = get_purchase_info(user_id)
+        info = get_purchase_info(user_id, filter_)
 
         return {
             'statusCode': 200,
@@ -48,7 +53,7 @@ def lambda_handler(event, context):
             })
         }
 
-def get_purchase_info(buyer_user_id):
+def get_purchase_info(buyer_user_id, filter_):
     from DatabaseActions import get_purchases, get_ticket_info, get_fixr_account_details_from_real_ticket_id, get_ticket_reference_by_real_ticket_id, mark_ask_as_claimed, remove_relationship, get_fixr_account_details_from_account_id
     from FixrAccount import FixrAccount
 
@@ -72,6 +77,11 @@ def get_purchase_info(buyer_user_id):
         image_url = ticket_info[4]
         fixr_event_id = ticket_info[5]
         fixr_ticket_id = ticket_info[6]
+
+        if filter_ == 'past' and close_time > time.time():
+            continue
+        elif filter_ == 'upcoming' and close_time < time.time():
+            continue
 
         if fixr_event_id not in response.keys():
             response[fixr_event_id] = {
@@ -113,4 +123,38 @@ def get_purchase_info(buyer_user_id):
             'claimed': claimed
         })
 
+    if filter_ == 'unclaimed':
+        response = filter_out_claimed(response)
+
     return response
+
+
+def filter_out_claimed(data):
+    events_to_remove = []
+
+    for event in data.keys():
+        tickets_to_remove = []
+
+        for ticket in data[event]['tickets'].keys():
+            purchases_to_remove = []
+
+            for purchase in data[event]['tickets'][ticket]['purchases']:
+                if purchase['claimed']:
+                    purchases_to_remove.append(purchase)
+
+            for purchase in purchases_to_remove:
+                data[event]['tickets'][ticket]['purchases'].remove(purchase)
+
+            if len(data[event]['tickets'][ticket]['purchases']) == 0:
+                tickets_to_remove.append(ticket)
+
+        for ticket in tickets_to_remove:
+            data[event]['tickets'].pop(ticket)
+
+        if len(data[event]['tickets']) == 0:
+            events_to_remove.append(event)
+
+    for event in events_to_remove:
+        data.pop(event)
+
+    return data

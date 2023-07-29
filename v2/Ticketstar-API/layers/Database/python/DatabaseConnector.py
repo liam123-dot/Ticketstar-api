@@ -12,28 +12,28 @@ logger.setLevel(logging.INFO)
 
 def connect_to_db():
     try:
-        # database_info = json.loads(get_secret())
+        database_info = json.loads(get_secret())
 
-        # host = database_info['host']
-        # database = database_info['dbname']
-        # username = database_info['username']
-        # password = database_info['password']
-
-        # connection = pymysql.connect(
-        #     host=host,
-        #     database=database,
-        #     user=username,
-        #     password=password,
-        #     ssl_ca='/etc/pki/tls/certs/ca-bundle.crt'
-        # )
+        host = database_info['host']
+        database = database_info['dbname']
+        username = database_info['username']
+        password = database_info['password']
 
         connection = pymysql.connect(
-            # host.docker.internal
-            host='host.docker.internal',
-            user='root',
-            password='Redyred358!',
-            db='ticketstartest'
+            host=host,
+            database=database,
+            user=username,
+            password=password,
+            ssl_ca='/etc/pki/tls/certs/ca-bundle.crt'
         )
+
+        # connection = pymysql.connect(
+        #     # host.docker.internal
+        #     host='host.docker.internal',
+        #     user='root',
+        #     password='Redyred358!',
+        #     db='ticketstartest'
+        # )
 
         return connection
     except Exception as e:

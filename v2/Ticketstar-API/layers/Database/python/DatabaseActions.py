@@ -37,7 +37,7 @@ def get_ticket_id(fixr_event_id, fixr_ticket_id):
         raise DatabaseException(e)
 
 
-def create_ticket_id(event, ticket):
+def create_ticket_id(database, event, ticket):
     ticket_sql = """
     INSERT INTO tickets (
         fixr_ticket_id, 
@@ -80,9 +80,8 @@ def create_ticket_id(event, ticket):
     )
 
     try:
-        with Database() as database:
-            ticket_id = database.execute_insert_query(ticket_sql, ticket_values)
-            return ticket_id
+        ticket_id = database.execute_insert_query(ticket_sql, ticket_values)
+        return ticket_id
     except Exception as e:
         raise DatabaseException(e)
 
@@ -119,33 +118,31 @@ def get_event_tickets(fixr_event_id):
         raise DatabaseException(e)
 
 
-def get_asks_by_ticket_id(ticket_id):
+def get_asks_by_ticket_id(ticket_id, database):
     get_asks_query = """SELECT ask_id, price, seller_user_id, reserved, reserve_timeout, buyer_user_id from asks
     WHERE ticket_id=%s AND fulfilled=0 and listed=1 ORDER BY price ASC"""
 
     try:
 
-        with Database() as database:
+        result = database.execute_select_query(get_asks_query, (ticket_id ,))
 
-            result = database.execute_select_query(get_asks_query, (ticket_id ,))
+        asks = []
 
-            asks = []
+        if len(result) == 0:
+            return {
+                'ask_count': 0,
+                'asks': asks
+            }
 
-            if len(result) == 0:
-                return {
-                    'ask_count': 0,
-                    'asks': asks
-                }
-
-            for ask in result:
-                asks.append({
-                    'ask_id': ask[0],
-                    'price': ask[1],
-                    'seller_user_id': ask[2],
-                    'reserved': ask[3] == b'\x01',
-                    'reserve_timeout': ask[4],
-                    'buyer_user_id': ask[5]
-                })
+        for ask in result:
+            asks.append({
+                'ask_id': ask[0],
+                'price': ask[1],
+                'seller_user_id': ask[2],
+                'reserved': ask[3] == b'\x01',
+                'reserve_timeout': ask[4],
+                'buyer_user_id': ask[5]
+            })
 
         return {
             'ask_count': len(asks),

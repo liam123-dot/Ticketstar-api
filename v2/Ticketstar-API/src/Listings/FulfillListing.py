@@ -16,6 +16,10 @@ logger.setLevel(logging.INFO)
 
 
 def lambda_handler(event, context):
+    return {
+        'statusCode': 400,
+        'body': ''
+    }
 
     try:
         body = json.loads(event['body'])
