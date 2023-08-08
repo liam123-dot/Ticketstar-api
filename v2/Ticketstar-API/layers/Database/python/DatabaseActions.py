@@ -86,7 +86,7 @@ def create_ticket_id(database, event, ticket):
         raise DatabaseException(e)
 
 
-def get_event_tickets(fixr_event_id):
+def get_event_tickets(database, fixr_event_id):
     sql = """
      SELECT 
       fixr_event_id, 
@@ -110,10 +110,9 @@ def get_event_tickets(fixr_event_id):
     WHERE fixr_event_id=%s"""
 
     try:
-        with Database() as database:
-            results = database.execute_select_query(sql, (fixr_event_id, ))
+        results = database.execute_select_query(sql, (fixr_event_id, ))
+        return results
 
-            return results
     except Exception as e:
         raise DatabaseException(e)
 
@@ -275,53 +274,50 @@ def create_real_ticket(ticket_id, account_id, ticket_reference):
         raise DatabaseException(e)
 
 
-def create_ask(seller_user_id, price, real_ticket_id, ticket_id):
+def create_ask(seller_user_id, price, real_ticket_id, ticket_id, pricing_id):
     sql = """
-    INSERT INTO asks(seller_user_id, price, real_ticket_id, ticket_id)
-    VALUES (%s, %s, %s, %s)
+    INSERT INTO asks(seller_user_id, price, real_ticket_id, ticket_id, pricing_id)
+    VALUES (%s, %s, %s, %s, %s)
     """
     try:
         with Database() as database:
-            database.execute_insert_query(sql, (seller_user_id, price, real_ticket_id, ticket_id))
+            database.execute_insert_query(sql, (seller_user_id, price, real_ticket_id, ticket_id, pricing_id))
 
     except Exception as e:
         raise DatabaseException(e)
 
 
-def get_purchases(user_id):
+def get_purchases(database, user_id):
     sql = """
     SELECT ask_id, price, ticket_id, claimed, real_ticket_id FROM asks 
     WHERE buyer_user_id=%s AND fulfilled=1
     """
     try:
-        with Database() as database:
-            results = database.execute_select_query(sql, (user_id, ))
+        results = database.execute_select_query(sql, (user_id, ))
 
         return results
     except Exception as e:
         raise DatabaseException(e)
 
 
-def get_listings(user_id):
+def get_listings(database, user_id):
     sql = """
     SELECT ask_id, price, ticket_id, fulfilled, listed, real_ticket_id FROM asks
     WHERE seller_user_id=%s
     """
     try:
-        with Database() as database:
-            results = database.execute_select_query(sql, (user_id, ))
+        results = database.execute_select_query(sql, (user_id, ))
 
         return results
     except Exception as e:
         raise DatabaseException(e)
 
-def get_ticket_info(ticket_id):
+def get_ticket_info(database, ticket_id):
     sql = """SELECT ticket_name, event_name, open_time, close_time, image_url, fixr_event_id, fixr_ticket_id
     from tickets WHERE ticket_id=%s"""
 
     try:
-        with Database() as database:
-            results = database.execute_select_query(sql, (ticket_id, ))
+        results = database.execute_select_query(sql, (ticket_id, ))
 
         return results
 
@@ -403,13 +399,12 @@ def get_fixr_account_details_from_account_id(account_id):
         raise DatabaseException(e)
 
 
-def get_fixr_account_details_from_real_ticket_id(real_ticket_id):
+def get_fixr_account_details_from_real_ticket_id(database, real_ticket_id):
     sql = """
     SELECT account_id FROM realtickets WHERE real_ticket_id=%s
     """
     try:
-        with Database() as database:
-            results = database.execute_select_query(sql, (real_ticket_id, ))
+        results = database.execute_select_query(sql, (real_ticket_id, ))
 
         account_id = results[0][0]
         return account_id, get_fixr_account_details_from_account_id(account_id)
@@ -445,13 +440,12 @@ def get_real_ticket_by_ask_id(ask_id):
         raise DatabaseException(e)
 
 
-def get_ticket_ownership(real_ticket_id):
+def get_ticket_ownership(database, real_ticket_id):
     sql = """
     SELECT ownership_verified, account_id, ticket_reference FROM realtickets WHERE real_ticket_id=%s
     """
     try:
-        with Database() as database:
-            results = database.execute_select_query(sql, (real_ticket_id, ))
+        results = database.execute_select_query(sql, (real_ticket_id, ))
 
         results = results[0]
         return results
@@ -471,39 +465,36 @@ def update_ticket_ownership(real_ticket_id, ownership):
         raise DatabaseException(e)
 
 
-def remove_relationship(account_id, ticket_id):
+def remove_relationship(database, account_id, ticket_id):
     sql = """
     UPDATE currentAccountRelationships 
     SET quantity = quantity - 1 
     WHERE account_id = %s AND ticket_id = %s;
     """
     try:
-        with Database() as database:
-            database.execute_update_query(sql, (account_id, ticket_id))
+        database.execute_update_query(sql, (account_id, ticket_id))
     except Exception as e:
         raise DatabaseException(e)
 
 
-def get_ticket_reference_by_real_ticket_id(real_ticket_id):
+def get_ticket_reference_by_real_ticket_id(database, real_ticket_id):
     sql = """
     SELECT ticket_reference FROM realtickets WHERE real_ticket_id=%s
     """
     try:
-        with Database() as database:
-            result = database.execute_select_query(sql, (real_ticket_id, ))
+        result = database.execute_select_query(sql, (real_ticket_id, ))
 
         return result[0][0]
     except Exception as e:
         raise DatabaseException(e)
 
 
-def mark_ask_as_claimed(ask_id):
+def mark_ask_as_claimed(database, ask_id):
     sql = """
     UPDATE asks SET claimed=1 WHERE ask_id=%s
     """
     try:
-        with Database() as database:
-            database.execute_update_query(sql, (ask_id, ))
+        database.execute_update_query(sql, (ask_id, ))
     except Exception as e:
         raise DatabaseException(e)
 

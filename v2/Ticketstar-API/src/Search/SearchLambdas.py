@@ -69,3 +69,4 @@ def get_venues(event, context):
 
 def get_organisers(event, context):
     return generic_get(organiser_search, 'organisers', event, context)
+

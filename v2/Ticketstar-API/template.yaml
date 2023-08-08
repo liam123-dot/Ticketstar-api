@@ -151,6 +151,50 @@ Resources:
             Path: /authentication/initiateemailverification
             Method: post
 
+  ConfirmEmailVerificationFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/Authentication/
+      Handler: ConfirmEmailVerification.lambda_handler
+      Environment:
+        Variables:
+          USER_POOL_ID: !Ref UserPoolId
+          CLIENT_ID: !Ref ClientId
+          CLIENT_SECRET: !Ref ClientSecret
+      Policies:
+        - AWSLambdaBasicExecutionRole
+        - SecretsManagerReadWrite
+        - AmazonCognitoPowerUser
+      Layers:
+        - !Ref DatabaseLayer
+      Events:
+        TicketstarApi:
+          Type: Api
+          Properties:
+            Path: /authentication/confirmemailverification
+            Method: post
+
+  ResendConfirmationCodeFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/Authentication/
+      Handler: ResendConfirmationCode.lambda_handler
+      Environment:
+        Variables:
+          USER_POOL_ID: !Ref UserPoolId
+          CLIENT_ID: !Ref ClientId
+          CLIENT_SECRET: !Ref ClientSecret
+      Policies:
+        - AWSLambdaBasicExecutionRole
+        - SecretsManagerReadWrite
+        - AmazonCognitoPowerUser
+      Events:
+        TicketstarApi:
+          Type: Api
+          Properties:
+            Path: /authentication/resendconfirmationcode
+            Method: post
+
   GetEventsFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -373,25 +417,6 @@ Resources:
             Path: /listing/relist
             Method: put
 
-  GetListingsFunction:
-    Type: AWS::Serverless::Function
-    Properties:
-      CodeUri: src/Listings
-      Handler: GetListings.lambda_handler
-      Layers:
-        - !Ref DatabaseLayer
-        - !Ref FixrLayer
-        - !Ref ExceptionsLayer
-      Policies:
-        - AWSLambdaBasicExecutionRole
-        - SecretsManagerReadWrite
-      Events:
-        TicketstarApi:
-          Type: Api
-          Properties:
-            Path: /listing
-            Method: get
-
   GetPurchasesFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -409,6 +434,25 @@ Resources:
           Type: Api
           Properties:
             Path: /purchases
+            Method: get
+
+  GetListingsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/Listings
+      Handler: GetListings.lambda_handler
+      Layers:
+        - !Ref DatabaseLayer
+        - !Ref FixrLayer
+        - !Ref ExceptionsLayer
+      Policies:
+        - AWSLambdaBasicExecutionRole
+        - SecretsManagerReadWrite
+      Events:
+        TicketstarApi:
+          Type: Api
+          Properties:
+            Path: /listings
             Method: get
 
   CheckListingEditableFunction:

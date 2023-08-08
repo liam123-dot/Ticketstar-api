@@ -2,6 +2,7 @@ import json
 import logging
 from DatabaseActions import get_customer, create_customer
 from DatabaseActions import get_ask, get_seller
+from DatabaseConnector import Database
 import stripe as stripe
 
 logger = logging.getLogger()
@@ -70,7 +71,7 @@ def lambda_handler(event, context):
             stripe_version='2022-11-15',
         )
 
-        application_fee = round(calculate_application_fee(price))
+        application_fee = round(calculate_application_fee(price, ask_id))
 
         payment_intent = stripe.PaymentIntent.create(
             amount=price,
@@ -82,6 +83,8 @@ def lambda_handler(event, context):
             application_fee_amount=application_fee,
             transfer_data={'destination': seller_stripe_id}
         )
+
+        insert_payment_intent(ask_id, payment_intent.id)
 
         return {
             'statusCode': 200,
@@ -103,10 +106,10 @@ def lambda_handler(event, context):
         }
 
 
-def calculate_application_fee(price):
+def calculate_application_fee(price, ask_id):
     # takes the price in pennies
-    from GetFees import get_fees
-    fees = get_fees()
+    from GetFees import get_fees_by_ask_id
+    fees = get_fees_by_ask_id(ask_id)
 
     stripe_fixed_fee = fees['stripe_fixed_fee'] # pennies
     stripe_variable_fee = fees['stripe_variable_fee'] # percentage as decimal
@@ -121,3 +124,9 @@ def calculate_application_fee(price):
     platform_fee = round(price * platform_variable_fee, 2) + platform_fixed_fee
 
     return stripe_fee + platform_fee
+
+
+def insert_payment_intent(ask_id, payment_intent_id):
+    with Database() as database:
+        sql = "UPDATE asks SET payment_intent=%s WHERE ask_id=%s"
+        database.execute_update_query(sql, (payment_intent_id, ask_id))

@@ -2,3 +2,4 @@ requests
 pymysql
 chardet
 urllib3<2
+stripe

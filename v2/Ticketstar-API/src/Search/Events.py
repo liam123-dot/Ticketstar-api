@@ -31,6 +31,8 @@ each tickets object should already have assessed what that user should display:
 
 """
 import json
+import random
+import time
 
 from FixrExceptions import FixrApiException
 
@@ -91,46 +93,46 @@ def get_event_info(event_id, user_id):
     from DatabaseConnector import Database
     from DatabaseActions import get_asks_by_ticket_id, get_event_tickets, create_ticket_id
 
-    event_info = get_event_tickets(event_id)
+    with Database() as database:
 
-    if len(event_info) == 0:
-        event_url = "https://api.fixr.co/api/v2/app/event/" + str(event_id) + "?"
+        event_info = get_event_tickets(database, event_id)
 
-        response = requests.get(event_url)
+        if len(event_info) == 0:
+            event_url = "https://api.fixr.co/api/v2/app/event/" + str(event_id) + "?"
 
-        if not response.ok:
-            logger.error("Response error from fixr. Response code: %s, Response text: %s", response.status_code,
-                         response.text)
+            response = requests.get(event_url)
 
-            raise FixrApiException("Bad fixr response")
+            if not response.ok:
+                logger.error("Response error from fixr. Response code: %s, Response text: %s", response.status_code,
+                             response.text)
 
-        try:
+                raise FixrApiException("Bad fixr response")
 
-            data = response.json()
-
-        except Exception as e:
-            raise FixrApiException(e)
-
-        event_parameters_to_pull = ['id', 'name', 'open_time', 'close_time', 'venue', 'image_url']
-
-        event = {}
-
-        for event_parameter in event_parameters_to_pull:
             try:
-                if event_parameter == 'id':
-                    event['fixr_id'] = data['id']
-                elif event_parameter == 'image_url':
-                    event['image_url'] = data['event_image']
-                else:
-                    event[event_parameter] = data[event_parameter]
-            except KeyError as e:
-                logger.error("Error with event parameter: %s. Error given: %s, ticket data: %s", event_parameter, e, data)
 
-        ticket_parameters_to_pull = ['id', 'name', 'price', 'booking_fee', 'promo_code_required', 'entry_count',
-                                     'max_per_user', 'sold_out', 'last_entry']
-        tickets = []
+                data = response.json()
 
-        with Database() as database:
+            except Exception as e:
+                raise FixrApiException(e)
+
+            event_parameters_to_pull = ['id', 'name', 'open_time', 'close_time', 'venue', 'image_url']
+
+            event = {}
+
+            for event_parameter in event_parameters_to_pull:
+                try:
+                    if event_parameter == 'id':
+                        event['fixr_id'] = data['id']
+                    elif event_parameter == 'image_url':
+                        event['image_url'] = data['event_image']
+                    else:
+                        event[event_parameter] = data[event_parameter]
+                except KeyError as e:
+                    logger.error("Error with event parameter: %s. Error given: %s, ticket data: %s", event_parameter, e, data)
+
+            ticket_parameters_to_pull = ['id', 'name', 'price', 'booking_fee', 'promo_code_required', 'entry_count',
+                                         'max_per_user', 'sold_out', 'last_entry']
+            tickets = []
 
             for ticket in data['tickets']:
                 ticket_info = {}
@@ -158,57 +160,36 @@ def get_event_info(event_id, user_id):
 
             return event
 
-    else:
+        else:
 
-        event = {}
+            event = {}
 
-        event_attribute_indexes = {
-            'fixr_event_id': 0,
-            'event_name': 1,
-            'open_time': 2,
-            'close_time': 3,
-            'venue_name': 4,
-            'image_url': 5,
-        }
+            event_attribute_indexes = {
+                'fixr_event_id': 0,
+                'event_name': 1,
+                'open_time': 2,
+                'close_time': 3,
+                'venue_name': 4,
+                'image_url': 5,
+            }
 
-        ticket_attribute_indexes = {
-            'fixr_ticket_id': 6,
-            'ticket_id': 7,
-            'ticket_name': 8,
-            'price': 9,
-            'booking_fee': 10,
-            'promo_code_required': 11,
-            'entry_count': 12,
-            'max_per_user': 13,
-            'sold_out': 14,
-            'last_entry': 15
-        }
+            ticket_attribute_indexes = {
+                'fixr_ticket_id': 6,
+                'ticket_id': 7,
+                'ticket_name': 8,
+                'price': 9,
+                'booking_fee': 10,
+                'promo_code_required': 11,
+                'entry_count': 12,
+                'max_per_user': 13,
+                'sold_out': 14,
+                'last_entry': 15
+            }
 
-        def process_data(i, data, database):
-            if i == 0:
-                for key in event_attribute_indexes.keys():
-                    index = event_attribute_indexes[key]
-                    event[key] = data[index]
-            ticket = {}
-            for key in ticket_attribute_indexes.keys():
-                index = ticket_attribute_indexes[key]
-                if key == 'ticket_id':
-                    ticket['id'] = data[index]
-                else:
-                    ticket[key] = data[index]
+            tickets = []
 
-            ticket_asks = get_asks_by_ticket_id(ticket['id'], database)
+            total_tickets = 0
 
-            ticket['listing'] = filter_ticket_asks(ticket_asks, user_id)
-            ticket['name'] = ticket['ticket_name']
-
-            logger.info(ticket)
-
-            return ticket
-
-        tickets = []
-
-        with Database() as database:
             for i in range(0, len(event_info)):
                 data = event_info[i]
                 if i == 0:
@@ -228,15 +209,21 @@ def get_event_info(event_id, user_id):
                 ticket['listing'] = filter_ticket_asks(ticket_asks, user_id)
                 ticket['name'] = ticket['ticket_name']
 
+                listing_count = ticket_asks['ask_count']
+                ticket['listing_count'] = listing_count
+                total_tickets += listing_count
+
                 tickets.append(ticket)
 
-                logger.info(ticket)
+            from CalculateSearchCount import calculate_event_searches
+            current_time = time.time()
+            event['search_count'] = calculate_event_searches(database, event_id, current_time - 3600, current_time)
 
-        tickets = sorted(tickets, key=lambda d: d['id'])
+            tickets = sorted(tickets, key=lambda d: d['id'])
 
-        event['tickets'] = tickets
-
-        return event
+            event['tickets'] = tickets
+            event['total_tickets'] = total_tickets
+            return event
 
 
 def filter_ticket_asks(asks, user_id):

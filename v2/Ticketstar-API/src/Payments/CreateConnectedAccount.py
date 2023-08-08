@@ -26,7 +26,6 @@ def lambda_handler(event, context):
         user_id = body['user_id']
         first_name = body['first_name']
         last_name = body['last_name']
-        phone_number = body['phone_number']
         email = body['email']
     except KeyError as e:
         return {
@@ -51,7 +50,7 @@ def lambda_handler(event, context):
             results = database.execute_select_query(sql, (user_id, ))
             if len(results) == 0:
                 logger.info("Creating account for user: " + str(user_id))
-                account = create_stripe_account(first_name, last_name, email, phone_number)
+                account = create_stripe_account(first_name, last_name, email)
 
                 account_id = account['id']
 
@@ -115,7 +114,7 @@ def generate_account_link(account_id, user_id):
     return account_link['url']
 
 
-def create_stripe_account(first_name, last_name, email, phone_number):
+def create_stripe_account(first_name, last_name, email):
     stripe.api_key = "sk_test_51NJwFSDXdklEKm0RDJhFhwEBcJLEPOtBtdeovg18JHIIu4HxkXLge19WAPvUap3V0drBuJOgrvccYNgCFaLfsW3x00ME3KwKgi"
 
     account = stripe.Account.create(
@@ -134,7 +133,6 @@ def create_stripe_account(first_name, last_name, email, phone_number):
             "product_description": "Fixr Tickets",
             "support_address": None,
             "support_email": None,
-            "support_phone": phone_number,
             "support_url": None,
             "url": "www.ticketstar.uk"
         },

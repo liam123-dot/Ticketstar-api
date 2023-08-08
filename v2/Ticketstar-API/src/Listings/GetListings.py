@@ -22,13 +22,7 @@ def lambda_handler(event, context):
     try:
         headers = event['headers']
         user_id = headers['Authorization']
-        query_string = event['queryStringParameters']
-        if 'filter' in query_string.keys():
-            filter_option = query_string['filter'].lower()
-            if filter_option == 'all':
-                filter_option = None
-        else:
-            filter_option = None
+
     except KeyError as e:
         return {
             'statusCode': 400,
@@ -48,7 +42,7 @@ def lambda_handler(event, context):
 
     try:
 
-        info = get_listing_info(user_id, filter_option)
+        info = get_listing_info(user_id)
 
         return {
             'statusCode': 200,
@@ -68,79 +62,82 @@ def lambda_handler(event, context):
 
 def get_listing_info(seller_user_id, filter_option=None):
     from DatabaseActions import get_listings, get_ticket_info, get_ticket_ownership, get_fixr_account_details_from_account_id, update_ticket_ownership, remove_relationship
+    from DatabaseConnector import Database
 
-    listings = get_listings(seller_user_id)
+    with Database() as database:
 
-    response = {}
+        listings = get_listings(database, seller_user_id)
 
-    for listing in listings:
-        ask_id = listing[0]
-        price = listing[1]
-        ticket_id = listing[2]
-        fulfilled = listing[3] == b'\x01'
-        listed = listing[4] == b'\x01'
-        real_ticket_id = listing[5]
+        response = {}
 
-        if filter_option is not None:
-            if filter_option == 'sold' and not fulfilled:
-                continue
-            elif filter_option == 'unsold' and fulfilled:
-                continue
+        for listing in listings:
+            ask_id = listing[0]
+            price = listing[1]
+            ticket_id = listing[2]
+            fulfilled = listing[3] == b'\x01'
+            listed = listing[4] == b'\x01'
+            real_ticket_id = listing[5]
 
-        ticket_info = get_ticket_info(ticket_id)[0]
+            if filter_option is not None:
+                if filter_option == 'sold' and not fulfilled:
+                    continue
+                elif filter_option == 'unsold' and fulfilled:
+                    continue
 
-        ticket_name = ticket_info[0]
-        event_name = ticket_info[1]
-        open_time = ticket_info[2]
-        close_time = ticket_info[3]
-        image_url = ticket_info[4]
-        fixr_event_id = ticket_info[5]
-        fixr_ticket_id = ticket_info[6]
+            ticket_info = get_ticket_info(database, ticket_id)[0]
 
-        if fixr_event_id not in response.keys():
-            response[fixr_event_id] = {
-                'event_name': event_name,
-                'open_time': open_time,
-                'close_time': close_time,
-                'image_url': image_url,
-                'tickets': {}
-            }
+            ticket_name = ticket_info[0]
+            event_name = ticket_info[1]
+            open_time = ticket_info[2]
+            close_time = ticket_info[3]
+            image_url = ticket_info[4]
+            fixr_event_id = ticket_info[5]
+            fixr_ticket_id = ticket_info[6]
 
-        if fixr_ticket_id not in response[fixr_event_id]['tickets']:
-            response[fixr_event_id]['tickets'][fixr_ticket_id] = {
-                'ticket_name': ticket_name,
-                'listings': []
-            }
+            if fixr_event_id not in response.keys():
+                response[fixr_event_id] = {
+                    'event_name': event_name,
+                    'open_time': open_time,
+                    'close_time': close_time,
+                    'image_url': image_url,
+                    'tickets': {}
+                }
 
-        if not listed:
-            results = get_ticket_ownership(real_ticket_id)
-            ownership = results[0] == b'\x01'
-            account_id = results[1]
-            ticket_reference = results[2]
+            if fixr_ticket_id not in response[fixr_event_id]['tickets']:
+                response[fixr_event_id]['tickets'][fixr_ticket_id] = {
+                    'ticket_name': ticket_name,
+                    'listings': []
+                }
 
-            if ownership:
-                account_details = get_fixr_account_details_from_account_id(account_id)[0]
-                fixr_username = account_details[0]
-                fixr_password = account_details[1]
+            if not listed:
+                results = get_ticket_ownership(database, real_ticket_id)
+                ownership = results[0] == b'\x01'
+                account_id = results[1]
+                ticket_reference = results[2]
 
-                from FixrAccount import FixrAccount
-                with requests.session() as s:
-                    account = FixrAccount(s, fixr_username, fixr_password)
+                if ownership:
+                    account_details = get_fixr_account_details_from_account_id(account_id)[0]
+                    fixr_username = account_details[0]
+                    fixr_password = account_details[1]
 
-                ticket = account.check_ownership(ticket_reference)
-                if not ticket:
-                    update_ticket_ownership(real_ticket_id, False)
-                    remove_relationship(account_id, ticket_id)
+                    from FixrAccount import FixrAccount
+                    with requests.session() as s:
+                        account = FixrAccount(s, fixr_username, fixr_password)
 
-        else:
-            ownership = None
+                    ticket = account.check_ownership(ticket_reference)
+                    if not ticket:
+                        update_ticket_ownership(real_ticket_id, False)
+                        remove_relationship(database, account_id, ticket_id)
 
-        response[fixr_event_id]['tickets'][fixr_ticket_id]['listings'].append({
-            'ask_id': ask_id,
-            'price': price,
-            'fulfilled': fulfilled,
-            'listed': listed,
-            'ownership': ownership
-        })
+            else:
+                ownership = None
 
-    return response
+            response[fixr_event_id]['tickets'][fixr_ticket_id]['listings'].append({
+                'ask_id': ask_id,
+                'price': price,
+                'fulfilled': fulfilled,
+                'listed': listed,
+                'ownership': ownership
+            })
+
+        return response

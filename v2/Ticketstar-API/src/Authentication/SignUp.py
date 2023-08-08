@@ -59,7 +59,6 @@ def lambda_handler(event, context):
         password = body['password']
         first_name = body['firstName']
         last_name = body['lastName']
-        phone_number = body['phoneNumber']
     except (KeyError, json.JSONDecodeError) as e:
         logger.error('Error processing body. Error: %s, with event: %s', e, event)  # log the error
         return {
@@ -80,33 +79,6 @@ def lambda_handler(event, context):
             })
         }
 
-    try:
-        valid_inputs = check_phone_number_valid(phone_number)
-
-    except botocore.exceptions.ClientError as e:
-        error = e.response['Error']
-        error_code = error['Code']
-
-        logger.error('Client error, check_phone_number_valid: %s, with event %s', error, event)  # log the error
-
-        if error_code == 'TooManyRequestsException':
-            return {
-                'statusCode': 501,
-                'body': json.dumps({
-                    'message': 'Too many requests, try again later',
-                    'reason': 'CognitoTooManyRequests'
-                })
-            }
-        else:
-            return {
-                'statusCode': 500,
-                'body': json.dumps({
-                    'message': e.response['Message'],
-                    'reason': error_code,
-                    'error': 2
-                })
-            }
-
     except Exception as e:
         logger.error("Error validating inputs error: %s", e)
 
@@ -119,23 +91,15 @@ def lambda_handler(event, context):
             })
         }
 
-    if not valid_inputs:
-        return {
-            'statusCode': 401,
-            'body': json.dumps({
-                'message': f'An account already exists with the provided phone number',
-                'reason': 'InvalidUserInput'
-            })
-        }
-
     try:
-        confirmation_method = submit_cognito_sign_up(email, password, first_name, last_name, phone_number)
+        confirmation_method, destination = submit_cognito_sign_up(email, password, first_name, last_name)
 
         return {
             'statusCode': 200,
             'body': json.dumps({
                 'message': 'User successfully registered',
-                'confirmation_method': confirmation_method
+                'method': confirmation_method,
+                'destination': destination
             })
         }
     except ClientError as e:
@@ -190,34 +154,7 @@ def lambda_handler(event, context):
         }
 
 
-def check_phone_number_valid(phone_number):
-    """
-
-    ListUsers Docs:
-
-    https://docs.aws.amazon.com/cognito-user-identity-pools/latest/APIReference/API_ListUsers.html
-
-    """
-
-    response = cognito.list_users(
-        UserPoolId=USER_POOL_ID,
-        AttributesToGet=[
-            'phone_number'
-        ],
-        Filter=f"phone_number='{phone_number}'"
-    )
-
-    for user in response['Users']:
-        attributes = user['Attributes']
-        logger.info(attributes)
-        for attribute in attributes:
-            if attribute['Name'] == 'phone_number' and attribute['Value'] == phone_number:
-                return False
-
-    return True
-
-
-def submit_cognito_sign_up(email, password, first_name, last_name, phone_number):
+def submit_cognito_sign_up(email, password, first_name, last_name):
     """
 
     SignUp Docs:
@@ -231,7 +168,6 @@ def submit_cognito_sign_up(email, password, first_name, last_name, phone_number)
         {'Name': 'email', 'Value': email},
         {'Name': 'given_name', 'Value': first_name},
         {'Name': 'family_name', 'Value': last_name},
-        {'Name': 'phone_number', 'Value': phone_number}
     ]
 
     response = cognito.sign_up(
@@ -242,6 +178,9 @@ def submit_cognito_sign_up(email, password, first_name, last_name, phone_number)
         UserAttributes=attributes
     )
 
-    confirmation_method = response['CodeDeliveryDetails']['DeliveryMedium']
+    delivery_details = response['CodeDeliveryDetails']
 
-    return confirmation_method
+    confirmation_method = delivery_details['DeliveryMedium']
+    destination = delivery_details['Destination']
+
+    return confirmation_method, destination

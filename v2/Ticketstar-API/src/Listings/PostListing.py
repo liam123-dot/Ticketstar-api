@@ -29,6 +29,7 @@ def lambda_handler(event, context):
         transfer_url = body['transfer_url']
         price = body['price']
         user_id = body['user_id']
+        pricing_id = body['pricing_id']
 
     except json.JSONDecodeError as e:
         return {
@@ -71,7 +72,7 @@ def lambda_handler(event, context):
             create_new_relationship(account_id, ticket_id, max_per_user)
 
         real_ticket_id = create_real_ticket(ticket_id, account_id, ticket_reference)
-        create_ask(user_id, price, real_ticket_id, ticket_id)
+        create_ask(user_id, price, real_ticket_id, ticket_id, pricing_id)
 
         return {
             'statusCode': 200,

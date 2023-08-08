@@ -5,6 +5,7 @@ Called during the sign up process. Will send a email verification code to a prov
 
 """
 import json
+import time
 
 import boto3
 from DatabaseConnector import Database
@@ -27,7 +28,6 @@ def lambda_handler(event, context):
     try:
         body = json.loads(event['body'])
         user_email = body['user_email']
-        user_id = body['user_id']
 
     except KeyError as e:
         return {
@@ -44,13 +44,15 @@ def lambda_handler(event, context):
 
     verification_code = generate_verification_code()
 
+    timeout = round(time.time()) + 3600
+
     with Database() as database:
         sql = """
-        INSERT INTO VerificationCodes(user_id, email_verification_code) VALUES (%s, %s)
-        ON DUPLICATE KEY UPDATE email_verification_code = VALUES(email_verification_code)
+        INSERT INTO VerificationCodes(user_email, email_verification_code, timeout) VALUES (%s, %s, %s)
+        ON DUPLICATE KEY UPDATE email_verification_code = VALUES(email_verification_code), timeout = VALUES(timeout)
         """
 
-        database.execute_insert_query(sql, (user_id, verification_code))
+        database.execute_insert_query(sql, (user_email, verification_code, timeout))
 
     response = ses.send_email(
         Source='verify@ticketstar.uk',

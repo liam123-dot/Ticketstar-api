@@ -1,93 +1,66 @@
-"""
-
-Function to fulfill an ask once payment has been confirmed
-add some confirmation about making sure the reserver and buyer are the same
-
-"""
+# """
+#
+# Function to fulfill an ask once payment has been confirmed
+# add some confirmation about making sure the reserver and buyer are the same
+#
+# """
 import json
 import logging
-import time
+import stripe
 
-import DatabaseException
-from DatabaseActions import get_ask, fulfill_listing
+from DatabaseConnector import Database
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
 
 def lambda_handler(event, context):
-    return {
-        'statusCode': 400,
-        'body': ''
-    }
 
     try:
+
         body = json.loads(event['body'])
-        buyer_user_id = body['buyer_user_id']
-        ask_id = body['ask_id']
-    except json.JSONDecoder as e:
-        logger.error("Error decoding body json, error: %s", str(e))
+
+        payment_intent_id = body['data']['object']['id']
+
+    except Exception as e:
+
         return {
             'statusCode': 400,
             'body': json.dumps({
-                'message': 'Invalid body sent, json error'
+                'message': 'Invalid body ' + str(e)
             })
         }
-    except KeyError as e:
-        return {
-            'statusCode': 400,
-            'body': json.dumps({
-                'message': f"Invalid body sent, error: {e}"
-            })
-        }
-
-    ask_info = get_ask(ask_id)
-
-    if ask_info['reserved']:
-
-        if ask_info['buyer_user_id'] != buyer_user_id:
-            return {
-                'statusCode': 400,
-                'body': json.dumps({
-                    'message': 'Reserve timed out, listing been reserved by another user'
-                })
-            }
-
-    if ask_info['fulfilled']:
-        if ask_info['buyer_user_id'] != buyer_user_id:
-            return {
-                'statusCode': 401,
-                'body': json.dumps({
-                    'message': 'Listing no longer available'
-                })
-            }
-        elif ask_info['buyer_user_id'] == buyer_user_id:
-            return {
-                'statusCode': 401,
-                'body': json.dumps({
-                    'message': 'You have already bought this ticket'
-                })
-            }
 
     try:
 
-        fulfill_listing(buyer_user_id, ask_id)
+        with Database() as database:
+            sql = 'UPDATE asks SET fulfilled=1 WHERE payment_intent=%s'
+
+            database.execute_update_query(sql, (payment_intent_id, ))
 
         return {
             'statusCode': 200,
             'body': json.dumps({
-                'message': 'Listing successfully fulfilled'
+                'message': 'Success'
             })
         }
 
-    except DatabaseException.DatabaseException as e:
-        logger.error("Database error when fulfilling ask: %s", str(e))
+    except Exception as e:
+        issue_refund(payment_intent_id)
         return {
-            'statusCode': 500,
+            'statusCode': 400,
             'body': json.dumps({
-                'message': 'internal server error'
+                'message': 'Listing not fulfilled and refund processed'
             })
         }
 
 
+def issue_refund(payment_intent_id):
+    stripe.api_key = 'sk_test_51NJwFSDXdklEKm0RDJhFhwEBcJLEPOtBtdeovg18JHIIu4HxkXLge19WAPvUap3V0drBuJOgrvccYNgCFaLfsW3x00ME3KwKgi'
+
+    stripe.Refund.create(
+        payment_intent=payment_intent_id,
+        refund_application_fee=True,
+        reverse_transfer=True
+    )
 

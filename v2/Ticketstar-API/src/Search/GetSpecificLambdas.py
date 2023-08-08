@@ -19,6 +19,22 @@ logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
 from FixrExceptions import FixrApiException
+from DatabaseConnector import Database
+
+
+def record_event_search(event_id):
+    import time
+    current_time = time.time()
+    try:
+        with Database() as database:
+            sql = """
+            INSERT INTO EventSearches (event_id, time)
+            VALUES (%s, %s)
+            """
+            database.execute_update_query(sql, (event_id, current_time))
+
+    except Exception as e:
+        logger.error("error adding event search: %s", e)
 
 
 def get_event(event, context):
@@ -28,6 +44,8 @@ def get_event(event, context):
         path_parameters = event['pathParameters']
 
         event_id = int(path_parameters['event_id'])
+
+        record_event_search(event_id)
 
     except KeyError as e:
 
@@ -163,7 +181,7 @@ def get_organiser_events(event, context):
 
                 'fixr_id': event['id'],
                 'name': event['name'],
-                'image_url': event['eventImage'],
+                'event_image': event['eventImage'],
                 'venue': {
                     'id': venue['id'],
                     'name': venue['name'],
@@ -171,7 +189,7 @@ def get_organiser_events(event, context):
                 },
                 'sold_out': event['soldOut'],
                 'cheapest_ticket': event['cheapestTicket'],
-                'open_time': event['openTime']
+                'open_time': event['openTime'],
 
             })
 

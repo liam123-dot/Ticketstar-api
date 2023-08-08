@@ -18,7 +18,7 @@ capabilities = "CAPABILITY_IAM"
 confirm_changeset = true
 s3_bucket = "ticketstar-api"
 region = "eu-west-2"
-parameter_overrides = "UserPoolId=\"eu-west-2_4o6b90A5T\" ClientId=\"1ehc0rh9dcug5djlopnrgfv5bq\""
+parameter_overrides = "UserPoolId=\"eu-west-2_ZSypBc3lu\" ClientId=\"7rt25kelkt84jlkad4ho49t1a2\""
 image_repositories = []
 disable_rollback = true
 
