@@ -14,10 +14,19 @@ logger.setLevel(logging.INFO)
 def lambda_handler(event, context):
     try:
 
-        return {
-            'statusCode': 200,
-            'body': json.dumps(get_fees())
-        }
+        query_string_parameters = event['queryStringParameters']
+        if 'ask_id' in query_string_parameters:
+            ask_id = query_string_parameters['ask_id']
+            return {
+                'statusCode': 200,
+                'body': json.dumps(get_fees_by_ask_id(ask_id))
+            }
+        else:
+
+            return {
+                'statusCode': 200,
+                'body': json.dumps(get_fees())
+            }
 
     except Exception as e:
         logger.error("Error getting fees, %s", e)

@@ -153,12 +153,11 @@ def get_asks_by_ticket_id(ticket_id, database):
         raise DatabaseException(e)
 
 
-def get_ask(ask_id):
+def get_ask(database, ask_id):
     query = """SELECT price, fulfilled, reserved, buyer_user_id, reserve_timeout, seller_user_id FROM asks where ask_id=%s """
 
     try:
-        with Database() as database:
-            result = database.execute_select_query(query, (ask_id, ))
+        result = database.execute_select_query(query, (ask_id, ))
 
         if len(result) == 0:
             return None
@@ -181,12 +180,11 @@ def get_ask(ask_id):
         raise DatabaseException(e)
 
 
-def reserve_ask(ask_id, user_id, reserve_timeout):
+def reserve_ask(database, ask_id, user_id, reserve_timeout):
     query = """UPDATE asks SET reserved=1, reserve_timeout=%s, buyer_user_id=%s WHERE ask_id=%s"""
 
     try:
-        with Database() as database:
-            database.execute_update_query(query, (reserve_timeout, user_id, ask_id))
+        database.execute_update_query(query, (reserve_timeout, user_id, ask_id))
 
     except Exception as e:
         logger.error("Error get_ask, error: %s", e)
@@ -275,13 +273,15 @@ def create_real_ticket(ticket_id, account_id, ticket_reference):
 
 
 def create_ask(seller_user_id, price, real_ticket_id, ticket_id, pricing_id):
+    import time
+    current_time = time.time()
     sql = """
-    INSERT INTO asks(seller_user_id, price, real_ticket_id, ticket_id, pricing_id)
-    VALUES (%s, %s, %s, %s, %s)
+    INSERT INTO asks(seller_user_id, price, real_ticket_id, ticket_id, pricing_id, posted_time)
+    VALUES (%s, %s, %s, %s, %s, %s)
     """
     try:
         with Database() as database:
-            database.execute_insert_query(sql, (seller_user_id, price, real_ticket_id, ticket_id, pricing_id))
+            database.execute_insert_query(sql, (seller_user_id, price, real_ticket_id, ticket_id, pricing_id, current_time))
 
     except Exception as e:
         raise DatabaseException(e)
@@ -499,24 +499,22 @@ def mark_ask_as_claimed(database, ask_id):
         raise DatabaseException(e)
 
 
-def get_customer(user_id):
+def get_customer(database, user_id):
     sql = "SELECT customer_id FROM stripe WHERE user_id=%s"
     try:
-        with Database() as database:
-            result = database.execute_select_query(sql, (user_id, ))
+        result = database.execute_select_query(sql, (user_id, ))
 
         return result
     except Exception as e:
         raise DatabaseException(e)
 
 
-def create_customer(user_id, stripe_id):
+def create_customer(database, user_id, stripe_id):
     sql = """INSERT INTO stripe(user_id, customer_id) VALUES(%s, %s)
              ON DUPLICATE KEY UPDATE customer_id = VALUES(customer_id)"""
 
     try:
-        with Database() as database:
-            result = database.execute_insert_query(sql, (user_id, stripe_id))
+        result = database.execute_insert_query(sql, (user_id, stripe_id))
 
         return result
     except Exception as e:
@@ -535,11 +533,10 @@ def fulfill_listing(user_id, ask_id):
         raise DatabaseException(e)
 
 
-def get_seller(user_id):
+def get_seller(database, user_id):
     sql = "SELECT seller_id FROM stripe WHERE user_id=%s"
     try:
-        with Database() as database:
-            result = database.execute_select_query(sql, (user_id, ))
-            return result
+        result = database.execute_select_query(sql, (user_id, ))
+        return result
     except Exception as e:
         raise DatabaseException(e)

@@ -6,7 +6,6 @@ This contains many aspect of error handling and verification.
 
 We need many functions to fulfill this.
 """
-import botocore.exceptions
 from utils import get_secret_hash
 
 """
@@ -46,9 +45,12 @@ logger.setLevel(logging.INFO)
 cognito = boto3.client('cognito-idp')
 
 # Cognito configuration
-USER_POOL_ID = os.environ.get('USER_POOL_ID')
-CLIENT_ID = os.environ.get('CLIENT_ID')
-CLIENT_SECRET = os.environ.get('CLIENT_SECRET')
+from GetCognitoCreds import get_secret
+cognito_creds = get_secret()
+
+USER_POOL_ID = cognito_creds['USER_POOL_ID']
+CLIENT_ID = cognito_creds['CLIENT_ID']
+CLIENT_SECRET = cognito_creds['CLIENT_SECRET']
 
 
 def lambda_handler(event, context):

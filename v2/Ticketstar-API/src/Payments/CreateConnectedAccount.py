@@ -19,9 +19,16 @@ import logging
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
+secret_key = "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"
+publishable_key = "pk_live_51NJwFSDXdklEKm0RH9UR7RgQ2kPsEQvbFaSJKVl5PnBMNWVIVT88W4wMIo8IIm9A6TvKOBOVV4xPSN9tvPMHAZOJ00uA9XSbKi"
+
+secret_key = "sk_test_51NJwFSDXdklEKm0RDJhFhwEBcJLEPOtBtdeovg18JHIIu4HxkXLge19WAPvUap3V0drBuJOgrvccYNgCFaLfsW3x00ME3KwKgi"
+publishable_key = "pk_test_51NJwFSDXdklEKm0R8JRHkohXh2qEKG57G837zZCKOUFXlyjTNkHa2XOSUa0zhN2rQaVkd9NPTykrdC9IRnoBlZ7Z00uMUWz549"
+
 def lambda_handler(event, context):
 
     try:
+        #create connected account
         body = json.loads(event['body'])
         user_id = body['user_id']
         first_name = body['first_name']
@@ -100,7 +107,7 @@ def lambda_handler(event, context):
 
 
 def generate_account_link(account_id, user_id):
-    stripe.api_key = "sk_test_51NJwFSDXdklEKm0RDJhFhwEBcJLEPOtBtdeovg18JHIIu4HxkXLge19WAPvUap3V0drBuJOgrvccYNgCFaLfsW3x00ME3KwKgi"
+    stripe.api_key = secret_key
 
     logger.info("Creating account onboarding link for user: " + str(user_id))
 
@@ -115,7 +122,7 @@ def generate_account_link(account_id, user_id):
 
 
 def create_stripe_account(first_name, last_name, email):
-    stripe.api_key = "sk_test_51NJwFSDXdklEKm0RDJhFhwEBcJLEPOtBtdeovg18JHIIu4HxkXLge19WAPvUap3V0drBuJOgrvccYNgCFaLfsW3x00ME3KwKgi"
+    stripe.api_key = secret_key
 
     account = stripe.Account.create(
         type='standard',

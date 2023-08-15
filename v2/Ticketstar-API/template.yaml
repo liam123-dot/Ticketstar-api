@@ -10,18 +10,6 @@ Globals:
     Runtime: python3.9
     MemorySize: 256
 
-Parameters:
-  UserPoolId:
-    Type: String
-    Description: The Cognito User Pool ID
-  ClientId:
-    Type: String
-    Description: The Cognito Client ID
-  ClientSecret:
-    Type: String
-    Description: The Cognito Client Secret
-    NoEcho: true
-
 Resources:
   SignUpFunction:
     Type: AWS::Serverless::Function
@@ -30,14 +18,10 @@ Resources:
       Handler: SignUp.lambda_handler
       Layers:
         - !Ref ExceptionsLayer
-      Environment:
-        Variables:
-          USER_POOL_ID: !Ref UserPoolId
-          CLIENT_ID: !Ref ClientId
-          CLIENT_SECRET: !Ref ClientSecret
       Policies:
         - AWSLambdaBasicExecutionRole
         - AmazonCognitoPowerUser
+        - SecretsManagerReadWrite
       Events:
         TicketstarApi:
           Type: Api
@@ -52,14 +36,10 @@ Resources:
       Handler: SignIn.lambda_handler
       Layers:
         - !Ref ExceptionsLayer
-      Environment:
-        Variables:
-          USER_POOL_ID: !Ref UserPoolId
-          CLIENT_ID: !Ref ClientId
-          CLIENT_SECRET: !Ref ClientSecret
       Policies:
         - AWSLambdaBasicExecutionRole
         - AmazonCognitoPowerUser
+        - SecretsManagerReadWrite
       Events:
         TicketstarApi:
           Type: Api
@@ -72,14 +52,10 @@ Resources:
     Properties:
       CodeUri: src/Authentication/
       Handler: VerifyConfirmationCode.lambda_handler
-      Environment:
-        Variables:
-          USER_POOL_ID: !Ref UserPoolId
-          CLIENT_ID: !Ref ClientId
-          CLIENT_SECRET: !Ref ClientSecret
       Policies:
         - AWSLambdaBasicExecutionRole
         - AmazonCognitoPowerUser
+        - SecretsManagerReadWrite
       Events:
         TicketstarApi:
           Type: Api
@@ -92,14 +68,10 @@ Resources:
     Properties:
       CodeUri: src/Authentication/
       Handler: ForgotPassword.lambda_handler
-      Environment:
-        Variables:
-          USER_POOL_ID: !Ref UserPoolId
-          CLIENT_ID: !Ref ClientId
-          CLIENT_SECRET: !Ref ClientSecret
       Policies:
         - AWSLambdaBasicExecutionRole
         - AmazonCognitoPowerUser
+        - SecretsManagerReadWrite
       Events:
         TicketstarApi:
           Type: Api
@@ -112,14 +84,10 @@ Resources:
     Properties:
       CodeUri: src/Authentication/
       Handler: ConfirmForgotPassword.lambda_handler
-      Environment:
-        Variables:
-          USER_POOL_ID: !Ref UserPoolId
-          CLIENT_ID: !Ref ClientId
-          CLIENT_SECRET: !Ref ClientSecret
       Policies:
         - AWSLambdaBasicExecutionRole
         - AmazonCognitoPowerUser
+        - SecretsManagerReadWrite
       Events:
         TicketstarApi:
           Type: Api
@@ -156,11 +124,6 @@ Resources:
     Properties:
       CodeUri: src/Authentication/
       Handler: ConfirmEmailVerification.lambda_handler
-      Environment:
-        Variables:
-          USER_POOL_ID: !Ref UserPoolId
-          CLIENT_ID: !Ref ClientId
-          CLIENT_SECRET: !Ref ClientSecret
       Policies:
         - AWSLambdaBasicExecutionRole
         - SecretsManagerReadWrite
@@ -179,11 +142,6 @@ Resources:
     Properties:
       CodeUri: src/Authentication/
       Handler: ResendConfirmationCode.lambda_handler
-      Environment:
-        Variables:
-          USER_POOL_ID: !Ref UserPoolId
-          CLIENT_ID: !Ref ClientId
-          CLIENT_SECRET: !Ref ClientSecret
       Policies:
         - AWSLambdaBasicExecutionRole
         - SecretsManagerReadWrite
@@ -202,14 +160,17 @@ Resources:
       Handler: SearchLambdas.get_events
       Layers:
         - !Ref ExceptionsLayer
+        - !Ref DatabaseLayer
       Policies:
         - AWSLambdaBasicExecutionRole
+        - SecretsManagerReadWrite
       Events:
         TicketstarApi:
           Type: Api
           Properties:
             Path: /search/events
             Method: get
+      MemorySize: 750
 
   GetVenuesFunction:
     Type: AWS::Serverless::Function
@@ -260,7 +221,7 @@ Resources:
           Properties:
             Path: /search/event/{event_id}
             Method: get
-      MemorySize: 2048
+      MemorySize: 512
       Timeout: 20
 
   GetOrganiserEventsFunction:
@@ -270,6 +231,7 @@ Resources:
       Handler: GetSpecificLambdas.get_organiser_events
       Layers:
         - !Ref ExceptionsLayer
+        - !Ref DatabaseLayer
       Policies:
         - AWSLambdaBasicExecutionRole
       Events:
@@ -278,6 +240,7 @@ Resources:
           Properties:
             Path: /search/organiser
             Method: get
+      MemorySize: 1024
 
   GetVenueEventsFunction:
     Type: AWS::Serverless::Function
@@ -286,6 +249,7 @@ Resources:
       Handler: GetSpecificLambdas.get_venue_events
       Layers:
         - !Ref ExceptionsLayer
+        - !Ref DatabaseLayer
       Policies:
         - AWSLambdaBasicExecutionRole
       Events:
@@ -294,6 +258,7 @@ Resources:
           Properties:
             Path: /search/venue/{venue_id}
             Method: get
+      MemorySize: 1024
 
   ReserveListingFunction:
     Type: AWS::Serverless::Function
@@ -312,6 +277,7 @@ Resources:
           Properties:
             Path: /listings/reserve
             Method: post
+      MemorySize: 2048
 
   FulfillListingFunction:
     Type: AWS::Serverless::Function
@@ -489,7 +455,7 @@ Resources:
           Type: Api
           Properties:
             Path: /transfers/{ask_id}
-            Method: get
+            Method: post
 
   PostPaymentSheetFunction:
     Type: AWS::Serverless::Function
@@ -509,6 +475,7 @@ Resources:
           Properties:
             Path: /payment-sheet
             Method: post
+      MemorySize: 512
 
   CheckUserConnectedAccount:
     Type: AWS::Serverless::Function
@@ -543,6 +510,7 @@ Resources:
           Properties:
             Path: /CreateConnectedAccount
             Method: post
+      MemorySize: 300
 
   GetFeesFunction:
     Type: AWS::Serverless::Function
@@ -559,6 +527,45 @@ Resources:
           Type: Api
           Properties:
             Path: /fees
+            Method: get
+
+  PdfBucket:
+    Type: AWS::S3::Bucket
+
+  UploadPdfFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: upload_pdf.lambda_handler
+      CodeUri: src/utils  # Assuming Lambda code is in the root directory with the template
+      Description: Uploads a PDF to S3.
+      Environment:
+        Variables:
+          BUCKET_NAME: !Ref PdfBucket
+      Policies:
+        - AmazonS3FullAccess
+      Events:
+        TicketstarApi:
+          Type: Api
+          Properties:
+            Path: /pdf/upload
+            Method: post
+
+  RetrievePdfFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: retrieve_pdf.lambda_handler
+      CodeUri: src/utils
+      Description: Retrieves a PDF URL from S3.
+      Environment:
+        Variables:
+          BUCKET_NAME: !Ref PdfBucket
+      Policies:
+        - AmazonS3FullAccess
+      Events:
+        TicketstarApi:
+          Type: Api
+          Properties:
+            Path: /pdf/download
             Method: get
 
   ExceptionsLayer:

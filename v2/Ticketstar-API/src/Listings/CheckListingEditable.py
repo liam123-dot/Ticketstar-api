@@ -14,12 +14,13 @@ logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
 from DatabaseActions import get_ask, reserve_ask
+from DatabaseConnector import Database
 
 
-def success(ask_id, seller_user_id):
+def success(database, ask_id, seller_user_id):
     reserve_timeout = round(time.time() + 120)
 
-    reserve_ask(ask_id, seller_user_id, reserve_timeout)
+    reserve_ask(database, ask_id, seller_user_id, reserve_timeout)
 
     return {
         'statusCode': 200,
@@ -43,45 +44,47 @@ def lambda_handler(event, context):
             })
         }
 
-    try:
+    with Database() as database:
 
-        ask = get_ask(ask_id)
+        try:
 
-    except DatabaseException.DatabaseException as e:
-        logger.error("Database error: %s", str(e))
-        return {
-            'statusCode': 500,
-            'body': json.dumps({
-                'message': 'Server error'
-            })
-        }
+            ask = get_ask(database, ask_id)
 
-    if ask['fulfilled']:
-        return {
-            'statusCode': 401,
-            'body': json.dumps({
-                'message': 'Listing has been purchased'
-            })
-        }
-
-    seller_user_id = ask['seller_user_id']
-    if ask['reserved']:
-        current_time = round(time.time())
-        if ask['reserve_timeout'] < current_time:
-            editable = True
-        elif ask['buyer_user_id'] == seller_user_id:
-            editable = True
-        else:
+        except DatabaseException.DatabaseException as e:
+            logger.error("Database error: %s", str(e))
             return {
-                'statusCode': 401,
+                'statusCode': 500,
                 'body': json.dumps({
-                    'message': 'Cannot edit, listing is currently reserved'
+                    'message': 'Server error'
                 })
             }
 
-    else:
-        editable = True
+        if ask['fulfilled']:
+            return {
+                'statusCode': 401,
+                'body': json.dumps({
+                    'message': 'Listing has been purchased'
+                })
+            }
 
-    if editable:
-        return success(ask_id, seller_user_id)
+        seller_user_id = ask['seller_user_id']
+        if ask['reserved']:
+            current_time = round(time.time())
+            if ask['reserve_timeout'] < current_time:
+                editable = True
+            elif ask['buyer_user_id'] == seller_user_id:
+                editable = True
+            else:
+                return {
+                    'statusCode': 401,
+                    'body': json.dumps({
+                        'message': 'Cannot edit, listing is currently reserved'
+                    })
+                }
+
+        else:
+            editable = True
+
+        if editable:
+            return success(database, ask_id, seller_user_id)
 

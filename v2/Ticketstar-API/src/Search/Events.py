@@ -65,22 +65,27 @@ def search(search_query, limit=None, offset=None):
 
     events = []
 
+    from DatabaseConnector import Database
+
     try:
 
-        for event in data['results']:
-            events.append({
-                'fixr_id': event['id'],
-                'name': event['name'],
-                'image_url': event['image_url'],
-                'open_time': event['opens_at'],
-                'close_time': event['closes_at'],
-                'venue': event['venue']['name'] if event.get('venue') else 'No venue attached',
-                'cheapest_ticket': event['cheapest_ticket'],
-                # will be used to verify whether tickets are available. i.e. null if not
-                'sold_out': event['is_sold_out']
-            })
+        with Database() as database:
 
-        sorted(events, key=lambda d: d['open_time'])
+            for event in data['results']:
+                events.append({
+                    'fixr_id': event['id'],
+                    'name': event['name'],
+                    'image_url': event['image_url'],
+                    'open_time': event['opens_at'],
+                    'close_time': event['closes_at'],
+                    'venue': event['venue']['name'] if event.get('venue') else 'No venue attached',
+                    'cheapest_ticket': event['cheapest_ticket'],
+                    # will be used to verify whether tickets are available. i.e. null if not
+                    'sold_out': event['is_sold_out'],
+                    'has_listings': check_event_has_tickets(database, event['id'])
+                })
+
+        events = sorted(events, key=lambda d: d['open_time'])
 
     except KeyError as e:
         logger.error("Error parsing events, error: %s, data: %s", e, data)
@@ -254,6 +259,12 @@ def filter_ticket_asks(asks, user_id):
             current_time = round(time.time())
             if ticket['reserve_timeout'] < current_time:
                 ticket['reserved'] = False
+                cheapest_ticket = {
+                    'ask_id': ticket['ask_id'],
+                    'cheapest': index == 0,
+                    'ask_price': ticket['price'],
+                    'purchasable': ticket['seller_user_id'] != user_id
+                }
             elif ticket['buyer_user_id'] == user_id:
                 cheapest_ticket = {
                     'ask_id': ticket['ask_id'],
@@ -262,11 +273,12 @@ def filter_ticket_asks(asks, user_id):
                 }
                 break
 
-        if ticket['seller_user_id'] != user_id and not ticket['reserved']:
+        elif user_id != ticket['seller_user_id'] and not ticket['reserved']:
             cheapest_ticket = {
                 'ask_id': ticket['ask_id'],
                 'cheapest': index == 0,
                 'ask_price': ticket['price'],
+                'purchasable': ticket['seller_user_id'] != user_id
             }
             break
 
@@ -279,3 +291,22 @@ def filter_ticket_asks(asks, user_id):
         return None
     else:
         return cheapest_ticket
+
+
+def check_event_has_tickets(database, event_id):
+    import time
+
+    current_time = time.time()
+    sql = """SELECT a.ticket_id
+            FROM asks a
+            WHERE a.ticket_id IN (
+                SELECT t.ticket_id 
+                FROM tickets t
+                WHERE t.fixr_event_id = %s
+            ) 
+            AND a.fulfilled=0 
+            AND a.listed=1 
+            AND (a.reserved=0 OR (a.reserved=1 AND a.reserve_timeout < %s));
+            """
+    results = database.execute_select_query(sql, (event_id, current_time))
+    return len(results) > 0

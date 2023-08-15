@@ -6,6 +6,8 @@
 # """
 import json
 import logging
+import time
+
 import stripe
 
 from DatabaseConnector import Database
@@ -34,9 +36,10 @@ def lambda_handler(event, context):
     try:
 
         with Database() as database:
-            sql = 'UPDATE asks SET fulfilled=1 WHERE payment_intent=%s'
+            current_time = time.time()
+            sql = 'UPDATE asks SET fulfilled=1, purchase_time=%s WHERE payment_intent=%s'
 
-            database.execute_update_query(sql, (payment_intent_id, ))
+            database.execute_update_query(sql, (current_time, payment_intent_id))
 
         return {
             'statusCode': 200,

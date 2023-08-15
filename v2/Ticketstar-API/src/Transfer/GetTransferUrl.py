@@ -7,6 +7,7 @@ Takes ask id as path parameter and gets the transfer url for that event
 import json
 
 from DatabaseActions import get_real_ticket_by_ask_id, get_fixr_account_details_from_account_id
+from DatabaseConnector import Database
 from DatabaseException import DatabaseException
 from FixrExceptions import FixrApiException
 from TransferURL import get_transfer_url
@@ -21,6 +22,20 @@ def lambda_handler(event, context):
 
         path_parameters = event['pathParameters']
         ask_id = path_parameters['ask_id']
+
+        body = json.loads(event['body'])
+        user_id = body['user_id']
+
+        authorized = confirm_ticket_ownership(user_id, ask_id)
+
+        if not authorized:
+            return {
+                'statusCode': 400,
+                'body': json.dumps({
+                    'message': 'Unauthorized',
+                    'reason': 'TicketNoLongerAvailable'
+                })
+            }
 
     except KeyError as e:
         return {
@@ -73,3 +88,27 @@ def get_transfer_url_from_ask(ask_id):
     transfer_url = get_transfer_url(fixr_username, fixr_password, ticket_reference)
 
     return transfer_url
+
+
+def confirm_ticket_ownership(user_id, ask_id):
+
+    with Database() as database:
+        sql = "SELECT fulfilled, seller_user_id, buyer_user_id FROM asks WHERE ask_id=%s"
+
+        results = database.execute_select_query(sql, (ask_id, ))[0]
+
+    fulfilled = results[0] == b'\x01'
+    seller_user_id = results[1]
+    buyer_user_id = results[2]
+
+    if fulfilled:
+        if buyer_user_id == user_id:
+            return True
+        else:
+            return False
+    else:
+        if seller_user_id == user_id:
+            return True
+        else:
+            return False
+

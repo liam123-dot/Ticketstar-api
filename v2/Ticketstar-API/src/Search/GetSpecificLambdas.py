@@ -41,11 +41,10 @@ def get_event(event, context):
     from Events import get_event_info
 
     try:
+        #
         path_parameters = event['pathParameters']
 
         event_id = int(path_parameters['event_id'])
-
-        record_event_search(event_id)
 
     except KeyError as e:
 
@@ -70,6 +69,10 @@ def get_event(event, context):
         query_string_parameters = event['queryStringParameters']
 
         user_id = query_string_parameters['user_id']
+
+        if 'refreshing' not in query_string_parameters.keys():
+
+            record_event_search(event_id)
 
     except KeyError as e:
 

@@ -13,6 +13,13 @@ import stripe
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
+secret_key = "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"
+publishable_key = "pk_live_51NJwFSDXdklEKm0RH9UR7RgQ2kPsEQvbFaSJKVl5PnBMNWVIVT88W4wMIo8IIm9A6TvKOBOVV4xPSN9tvPMHAZOJ00uA9XSbKi"
+
+secret_key = "sk_test_51NJwFSDXdklEKm0RDJhFhwEBcJLEPOtBtdeovg18JHIIu4HxkXLge19WAPvUap3V0drBuJOgrvccYNgCFaLfsW3x00ME3KwKgi"
+publishable_key = "pk_test_51NJwFSDXdklEKm0R8JRHkohXh2qEKG57G837zZCKOUFXlyjTNkHa2XOSUa0zhN2rQaVkd9NPTykrdC9IRnoBlZ7Z00uMUWz549"
+
+
 def lambda_handler(event, context):
 
     try:
@@ -71,7 +78,7 @@ def lambda_handler(event, context):
         }
 
 def check_stripe_account_enabled(seller_id):
-    stripe.api_key = "sk_test_51NJwFSDXdklEKm0RDJhFhwEBcJLEPOtBtdeovg18JHIIu4HxkXLge19WAPvUap3V0drBuJOgrvccYNgCFaLfsW3x00ME3KwKgi"
+    stripe.api_key = secret_key
 
     account = stripe.Account.retrieve(seller_id)
 

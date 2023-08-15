@@ -31,6 +31,7 @@ import logging
 import time
 from DatabaseActions import get_ask
 from DatabaseActions import reserve_ask as database_reserve_ask
+from DatabaseConnector import Database
 from DatabaseException import DatabaseException
 
 logger = logging.getLogger()
@@ -63,79 +64,90 @@ def lambda_handler(event, context):
             })
         }
 
-    try:
+    with Database() as database:
 
-        ask = get_ask(ask_id)
+        try:
 
-    except DatabaseException as e:
-        logger.error("Error getting ask, error: %s", str(e))
-        return {
-            'statusCode': 500,
-            'body': json.dumps({
-                'message': 'database exception',
-                'reason': 'DatabaseException'
-            })
-        }
+            ask = get_ask(database, ask_id)
 
-    if price != ask['price']:
-        return {
-            'statusCode': 400,
-            'body': json.dumps({
-                'message': 'price has been changed',
-                'reason': 'AskUpdated'
-            })
-        }
+        except DatabaseException as e:
+            logger.error("Error getting ask, error: %s", str(e))
+            return {
+                'statusCode': 500,
+                'body': json.dumps({
+                    'message': 'database exception',
+                    'reason': 'DatabaseException'
+                })
+            }
 
-    current_time = time.time()
-
-    try:
-
-        if ask['fulfilled']:
+        if price != ask['price']:
             return {
                 'statusCode': 400,
                 'body': json.dumps({
-                    'message': "listing has been fulfilled",
-                    'reason': 'ListingFulfilled'
+                    'message': 'price has been changed',
+                    'reason': 'AskUpdated'
                 })
             }
-        if ask['reserved']:
-            if ask['buyer_user_id'] == user_id:
-                return reserve_ask(ask_id, user_id)
-            elif ask['reserve_timeout'] < current_time:
-                return reserve_ask(ask_id, user_id)
-            else:
+
+        current_time = time.time()
+
+        try:
+
+            if ask['seller_user_id'] == user_id:
                 return {
                     'statusCode': 400,
                     'body': json.dumps({
-                        'message': 'listing has been reserved',
-                        'reason': 'ListingReserved'
+                        'message': 'Listing can not be purchased by seller',
+                        'reason': 'NotPurchasableBySeller'
                     })
                 }
 
-        return reserve_ask(ask_id, user_id)
+            if ask['fulfilled']:
+                return {
+                    'statusCode': 400,
+                    'body': json.dumps({
+                        'message': "listing has been fulfilled",
+                        'reason': 'ListingFulfilled'
+                    })
+                }
+            if ask['reserved']:
+                if ask['buyer_user_id'] == user_id:
+                    return reserve_ask(database, ask_id, user_id)
+                elif ask['reserve_timeout'] < current_time:
+                    return reserve_ask(database, ask_id, user_id)
+                else:
+                    return {
+                        'statusCode': 400,
+                        'body': json.dumps({
+                            'message': 'listing has been reserved',
+                            'reason': 'ListingReserved'
+                        })
+                    }
 
-    except DatabaseException as e:
-        logger.error("Error getting ask, error: %s", str(e))
-        return {
-            'statusCode': 500,
-            'body': json.dumps({
-                'message': 'database exception',
-                'reason': 'DatabaseException'
-            })
-        }
-    except Exception as e:
-        logger.error("Error returning ask information, error: %s", str(e))
-        return {
-            'statusCode': 500,
-            'body': json.dumps({
-                'message': 'unknown exception',
-                'reason': 'Exception'
-            })
-        }
+            return reserve_ask(database, ask_id, user_id)
 
-def reserve_ask(ask_id, user_id):
+        except DatabaseException as e:
+            logger.error("Error getting ask, error: %s", str(e))
+            return {
+                'statusCode': 500,
+                'body': json.dumps({
+                    'message': 'database exception',
+                    'reason': 'DatabaseException'
+                })
+            }
+        except Exception as e:
+            logger.error("Error returning ask information, error: %s", str(e))
+            return {
+                'statusCode': 500,
+                'body': json.dumps({
+                    'message': 'unknown exception',
+                    'reason': 'Exception'
+                })
+            }
+
+def reserve_ask(database, ask_id, user_id):
     reserve_timeout = round(time.time() + 120)
-    database_reserve_ask(ask_id, user_id, reserve_timeout)
+    database_reserve_ask(database, ask_id, user_id, reserve_timeout)
 
     return {
         'statusCode': 200,

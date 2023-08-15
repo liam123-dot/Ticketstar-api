@@ -10,6 +10,12 @@ logger.setLevel(logging.INFO)
 
 def lambda_handler(event, context):
 
+    secret_key = "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"
+    publishable_key = "pk_live_51NJwFSDXdklEKm0RH9UR7RgQ2kPsEQvbFaSJKVl5PnBMNWVIVT88W4wMIo8IIm9A6TvKOBOVV4xPSN9tvPMHAZOJ00uA9XSbKi"
+
+    secret_key = "sk_test_51NJwFSDXdklEKm0RDJhFhwEBcJLEPOtBtdeovg18JHIIu4HxkXLge19WAPvUap3V0drBuJOgrvccYNgCFaLfsW3x00ME3KwKgi"
+    publishable_key = "pk_test_51NJwFSDXdklEKm0R8JRHkohXh2qEKG57G837zZCKOUFXlyjTNkHa2XOSUa0zhN2rQaVkd9NPTykrdC9IRnoBlZ7Z00uMUWz549"
+
     try:
         body = json.loads(event['body'])
 
@@ -23,7 +29,6 @@ def lambda_handler(event, context):
             }
         user_email = body['user_email']
         user_id = body['user_id']
-        user_phone_number = body['user_phone_number']
         user_name = body['user_name']
         ask_id = body['ask_id']
 
@@ -44,57 +49,65 @@ def lambda_handler(event, context):
         }
 
     try:
+        with Database() as database:
 
-        results = get_customer(user_id)
+            results = get_customer(database, user_id)
 
-        seller_id = get_ask(ask_id)['seller_user_id']
+            seller_id = get_ask(database, ask_id)['seller_user_id']
 
-        seller_stripe_id = get_seller(seller_id)[0][0]
+            seller_stripe_id = get_seller(database, seller_id)[0][0]
 
-        stripe.api_key = 'sk_test_51NJwFSDXdklEKm0RDJhFhwEBcJLEPOtBtdeovg18JHIIu4HxkXLge19WAPvUap3V0drBuJOgrvccYNgCFaLfsW3x00ME3KwKgi'
+            stripe.api_key = secret_key
 
-        if len(results) == 0:
-            new_customer = stripe.Customer.create(
-                name=user_name,
-                email=user_email,
-                phone=user_phone_number,
+            if len(results) == 0:
+                new_customer = stripe.Customer.create(
+                    name=user_name,
+                    email=user_email,
+                )
+
+                stripe_id = new_customer['id']
+
+                create_customer(database, user_id, stripe_id)
+            else:
+                stripe_id = results[0][0]
+
+            ephemeral_key = stripe.EphemeralKey.create(
+                customer=stripe_id,
+                stripe_version='2022-11-15',
             )
 
-            stripe_id = new_customer['id']
+            application_fee = round(calculate_application_fee(price, ask_id))
 
-            create_customer(user_id, stripe_id)
-        else:
-            stripe_id = results[0][0]
+            payment_intent = get_payment_intent(database, ask_id, user_id)
 
-        ephemeral_key = stripe.EphemeralKey.create(
-            customer=stripe_id,
-            stripe_version='2022-11-15',
-        )
+            logger.info('payment_intent: ' + str(payment_intent))
 
-        application_fee = round(calculate_application_fee(price, ask_id))
+            if payment_intent is None:
 
-        payment_intent = stripe.PaymentIntent.create(
-            amount=price,
-            currency='gbp',
-            customer=stripe_id,
-            automatic_payment_methods={
-                'enabled': True,
-            },
-            application_fee_amount=application_fee,
-            transfer_data={'destination': seller_stripe_id}
-        )
+                logger.info('creating payment intent')
 
-        insert_payment_intent(ask_id, payment_intent.id)
+                payment_intent = stripe.PaymentIntent.create(
+                    amount=price,
+                    currency='gbp',
+                    customer=stripe_id,
+                    automatic_payment_methods={
+                        'enabled': True,
+                    },
+                    application_fee_amount=application_fee,
+                    transfer_data={'destination': seller_stripe_id}
+                )
 
-        return {
-            'statusCode': 200,
-            'body': json.dumps({
-                'paymentIntent': payment_intent.client_secret,
-                'ephemeralKey': ephemeral_key.secret,
-                'customer': stripe_id,
-                'publishableKey': 'pk_test_51NJwFSDXdklEKm0R8JRHkohXh2qEKG57G837zZCKOUFXlyjTNkHa2XOSUa0zhN2rQaVkd9NPTykrdC9IRnoBlZ7Z00uMUWz549'
-            })
-        }
+                insert_payment_intent(database, ask_id, payment_intent.id)
+
+            return {
+                'statusCode': 200,
+                'body': json.dumps({
+                    'paymentIntent': payment_intent.client_secret,
+                    'ephemeralKey': ephemeral_key.secret,
+                    'customer': stripe_id,
+                    'publishableKey': publishable_key
+                })
+            }
 
     except Exception as e:
         logger.error("ERROR payment sheet, error: %s", e)
@@ -126,7 +139,34 @@ def calculate_application_fee(price, ask_id):
     return stripe_fee + platform_fee
 
 
-def insert_payment_intent(ask_id, payment_intent_id):
-    with Database() as database:
-        sql = "UPDATE asks SET payment_intent=%s WHERE ask_id=%s"
-        database.execute_update_query(sql, (payment_intent_id, ask_id))
+def insert_payment_intent(database, ask_id, payment_intent_id):
+    sql = "UPDATE asks SET payment_intent=%s WHERE ask_id=%s"
+    database.execute_update_query(sql, (payment_intent_id, ask_id))
+
+
+def get_payment_intent(database, ask_id, user_id):
+    sql = "SELECT payment_intent, buyer_user_id FROM asks WHERE ask_id=%s"
+
+    results = database.execute_select_query(sql, (ask_id, ))
+    if len(results) == 0:
+        return None
+    else:
+        result = results[0]
+        payment_intent = result[0]
+        buyer_user_id = result[1]
+        if buyer_user_id == user_id and payment_intent is not None:
+            payment_intent = stripe.PaymentIntent.retrieve(payment_intent)
+            customer_id = payment_intent.customer
+
+            get_customer_id_sql = "SELECT user_id FROM stripe WHERE customer_id=%s"
+
+            results = database.execute_select_query(get_customer_id_sql, (customer_id, ))
+
+            if len(results) == 0:
+                return None
+            else:
+                _payment_intent_user_id = results[0][0]
+                if _payment_intent_user_id == user_id:
+                    return payment_intent
+
+    return None
