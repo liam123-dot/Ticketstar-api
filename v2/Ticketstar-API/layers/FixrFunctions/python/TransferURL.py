@@ -58,11 +58,11 @@ def verify_transfer_url(transfer_url, fixr_event_id, fixr_ticket_id):
     return transfer_event_id == fixr_event_id and transfer_ticket_id == fixr_ticket_id
 
 
-def claim_ticket(transfer_url, ticket_id):
+def claim_ticket(database, transfer_url, ticket_id):
     from DatabaseActions import get_fixr_account_for_ticket_id
     from FixrAccount import FixrAccount
 
-    account_details = get_fixr_account_for_ticket_id(ticket_id)
+    account_details = get_fixr_account_for_ticket_id(database, ticket_id)
 
     username = account_details[0]
     password = account_details[1]

@@ -93,13 +93,14 @@ def get_transfer_url_from_ask(ask_id):
 def confirm_ticket_ownership(user_id, ask_id):
 
     with Database() as database:
-        sql = "SELECT fulfilled, seller_user_id, buyer_user_id FROM asks WHERE ask_id=%s"
+        sql = "SELECT fulfilled, seller_user_id, buyer_user_id, listed FROM asks WHERE ask_id=%s"
 
         results = database.execute_select_query(sql, (ask_id, ))[0]
 
     fulfilled = results[0] == b'\x01'
     seller_user_id = results[1]
     buyer_user_id = results[2]
+    listed = results[3] == b'\x01'
 
     if fulfilled:
         if buyer_user_id == user_id:
@@ -108,6 +109,8 @@ def confirm_ticket_ownership(user_id, ask_id):
             return False
     else:
         if seller_user_id == user_id:
+            if listed:
+                return False
             return True
         else:
             return False

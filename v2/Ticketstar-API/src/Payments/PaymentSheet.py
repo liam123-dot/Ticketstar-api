@@ -20,7 +20,7 @@ def lambda_handler(event, context):
         body = json.loads(event['body'])
 
         price = int(float(body['price']) * 100)
-        if price < 20:
+        if price < 100:
             return {
                 'statusCode': 400,
                 'body': json.dumps({
@@ -78,7 +78,7 @@ def lambda_handler(event, context):
 
             application_fee = round(calculate_application_fee(price, ask_id))
 
-            payment_intent = get_payment_intent(database, ask_id, user_id)
+            payment_intent = get_payment_intent(database, ask_id, user_id, price)
 
             logger.info('payment_intent: ' + str(payment_intent))
 
@@ -97,7 +97,7 @@ def lambda_handler(event, context):
                     transfer_data={'destination': seller_stripe_id}
                 )
 
-                insert_payment_intent(database, ask_id, payment_intent.id)
+                insert_payment_intent(database, ask_id, payment_intent.id, price)
 
             return {
                 'statusCode': 200,
@@ -139,13 +139,13 @@ def calculate_application_fee(price, ask_id):
     return stripe_fee + platform_fee
 
 
-def insert_payment_intent(database, ask_id, payment_intent_id):
-    sql = "UPDATE asks SET payment_intent=%s WHERE ask_id=%s"
-    database.execute_update_query(sql, (payment_intent_id, ask_id))
+def insert_payment_intent(database, ask_id, payment_intent_id, price):
+    sql = "UPDATE asks SET payment_intent=%s, payment_intent_price=%s WHERE ask_id=%s"
+    database.execute_update_query(sql, (payment_intent_id, price, ask_id))
 
 
-def get_payment_intent(database, ask_id, user_id):
-    sql = "SELECT payment_intent, buyer_user_id FROM asks WHERE ask_id=%s"
+def get_payment_intent(database, ask_id, user_id, price):
+    sql = "SELECT payment_intent, buyer_user_id, payment_intent_price FROM asks WHERE ask_id=%s"
 
     results = database.execute_select_query(sql, (ask_id, ))
     if len(results) == 0:
@@ -154,6 +154,8 @@ def get_payment_intent(database, ask_id, user_id):
         result = results[0]
         payment_intent = result[0]
         buyer_user_id = result[1]
+        payment_intent_price = result[2]
+
         if buyer_user_id == user_id and payment_intent is not None:
             payment_intent = stripe.PaymentIntent.retrieve(payment_intent)
             customer_id = payment_intent.customer
@@ -167,6 +169,7 @@ def get_payment_intent(database, ask_id, user_id):
             else:
                 _payment_intent_user_id = results[0][0]
                 if _payment_intent_user_id == user_id:
-                    return payment_intent
+                    if price == payment_intent_price:
+                        return payment_intent
 
     return None

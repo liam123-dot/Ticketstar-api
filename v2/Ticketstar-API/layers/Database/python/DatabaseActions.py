@@ -12,23 +12,21 @@ logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
 
-def get_ticket_id(fixr_event_id, fixr_ticket_id):
+def get_ticket_id(database, fixr_event_id, fixr_ticket_id):
 
     try:
 
-        with Database() as database:
+        get_ticket_query = "SELECT ticket_id FROM tickets WHERE fixr_ticket_id=%s AND fixr_event_id=%s"
 
-            get_ticket_query = "SELECT ticket_id FROM tickets WHERE fixr_ticket_id=%s AND fixr_event_id=%s"
+        result = database.execute_select_query(get_ticket_query, (fixr_ticket_id, fixr_event_id))
 
-            result = database.execute_select_query(get_ticket_query, (fixr_ticket_id, fixr_event_id))
+        if len(result) == 0:
 
-            if len(result) == 0:
+            return -1
 
-                return -1
+        else:
 
-            else:
-
-                ticket_id = result[0][0]
+            ticket_id = result[0][0]
 
         return ticket_id
 
@@ -191,7 +189,7 @@ def reserve_ask(database, ask_id, user_id, reserve_timeout):
         raise DatabaseException(e)
 
 
-def get_fixr_account_for_ticket_id(ticket_id):
+def get_fixr_account_for_ticket_id(database, ticket_id):
     query = """
         SELECT fixr_username, fixr_password, account_id
         FROM FixrAccounts
@@ -210,14 +208,13 @@ def get_fixr_account_for_ticket_id(ticket_id):
         LIMIT 1;
         """
     try:
-        with Database() as database:
-            result = database.execute_select_query(query, (ticket_id, ))
-            return result[0]
+        result = database.execute_select_query(query, (ticket_id, ))
+        return result[0]
     except Exception as e:
         raise DatabaseException(e)
 
 
-def check_relationship_exists(account_id, ticket_id):
+def check_relationship_exists(database, account_id, ticket_id):
 
     sql = """
     SELECT relationship_id, quantity
@@ -225,54 +222,51 @@ def check_relationship_exists(account_id, ticket_id):
     WHERE account_id=%s AND ticket_id=%s
     """
     try:
-        with Database() as database:
-            result = database.execute_select_query(sql, (account_id, ticket_id))
-            if len(result) == 0:
-                return False
-            else:
-                relationship_id = result[0][0]
-                quantity = result[0][1] + 1
-                sql = """
-                UPDATE currentAccountRelationships
-                SET quantity=%s
-                WHERE relationship_id=%s
-                """
-                database.execute_update_query(sql, (quantity, relationship_id))
+        result = database.execute_select_query(sql, (account_id, ticket_id))
+        if len(result) == 0:
+            return False
+        else:
+            relationship_id = result[0][0]
+            quantity = result[0][1] + 1
+            sql = """
+            UPDATE currentAccountRelationships
+            SET quantity=%s
+            WHERE relationship_id=%s
+            """
+            database.execute_update_query(sql, (quantity, relationship_id))
 
-                return True
+            return True
 
     except Exception as e:
         raise DatabaseException(e)
 
-def create_new_relationship(account_id, ticket_id, max_per_user):
+def create_new_relationship(database, account_id, ticket_id, max_per_user):
     sql = """
     INSERT INTO currentAccountRelationships(account_id, ticket_id, ticket_limit, quantity)
     VALUES (%s, %s, %s, 1)
     """
     try:
-        with Database() as database:
-            database.execute_insert_query(sql, (account_id, ticket_id, max_per_user))
+        database.execute_insert_query(sql, (account_id, ticket_id, max_per_user))
 
     except Exception as e:
         raise DatabaseException(e)
 
 
-def create_real_ticket(ticket_id, account_id, ticket_reference):
+def create_real_ticket(database, ticket_id, account_id, ticket_reference):
     sql = """
     INSERT INTO realtickets(ticket_id, account_id, ticket_reference, ownership_verified)
     VALUES (%s, %s, %s, 1)
     """
 
     try:
-        with Database() as database:
-            real_ticket_id = database.execute_insert_query(sql, (ticket_id, account_id, ticket_reference))
-            return real_ticket_id
+        real_ticket_id = database.execute_insert_query(sql, (ticket_id, account_id, ticket_reference))
+        return real_ticket_id
 
     except Exception as e:
         raise DatabaseException(e)
 
 
-def create_ask(seller_user_id, price, real_ticket_id, ticket_id, pricing_id):
+def create_ask(database, seller_user_id, price, real_ticket_id, ticket_id, pricing_id):
     import time
     current_time = time.time()
     sql = """
@@ -280,8 +274,7 @@ def create_ask(seller_user_id, price, real_ticket_id, ticket_id, pricing_id):
     VALUES (%s, %s, %s, %s, %s, %s)
     """
     try:
-        with Database() as database:
-            database.execute_insert_query(sql, (seller_user_id, price, real_ticket_id, ticket_id, pricing_id, current_time))
+        database.execute_insert_query(sql, (seller_user_id, price, real_ticket_id, ticket_id, pricing_id, current_time))
 
     except Exception as e:
         raise DatabaseException(e)

@@ -325,12 +325,14 @@ Resources:
       Policies:
         - AWSLambdaBasicExecutionRole
         - SecretsManagerReadWrite
+        - AmazonS3FullAccess
       Events:
         TicketstarApi:
           Type: Api
           Properties:
             Path: /listing
             Method: post
+      MemorySize: 512
 
   RemoveListingFunction:
     Type: AWS::Serverless::Function
@@ -567,6 +569,23 @@ Resources:
           Properties:
             Path: /pdf/download
             Method: get
+
+  LogAppOpenFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: RecordAppOpen.lambda_handler
+      CodeUri: src/Metrics/
+      Layers:
+        - !Ref DatabaseLayer
+      Policies:
+        - AWSLambdaBasicExecutionRole
+        - SecretsManagerReadWrite
+      Events:
+        TicketstarApi:
+          Type: Api
+          Properties:
+            Path: /metrics/startsession
+            Method: post
 
   ExceptionsLayer:
     Type: AWS::Serverless::LayerVersion

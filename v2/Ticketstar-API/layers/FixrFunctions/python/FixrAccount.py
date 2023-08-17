@@ -6,8 +6,11 @@ File to manage the functions performed on an individual fixr account
 import json
 
 import requests
+import logging
 from FixrExceptions import FixrApiException
 
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
 
 class FixrAccount:
 
@@ -16,6 +19,7 @@ class FixrAccount:
         self.session = session
         self.username = username
         self.password = password
+        self.pdf_url = None
 
         self.login()
 
@@ -57,6 +61,16 @@ class FixrAccount:
         data = response.json()
 
         ticket_reference = data['data']['transfer_code']['transferred_ticket_reference']
+
+        logger.info('account: ' + self.username + 'claimed ticket, ticket_reference: ' + ticket_reference)
+
+        try:
+            pdf_url = data['data']['ticket_reference']['pdf']
+            from upload_pdf import upload_pdf
+            upload_pdf(pdf_url, ticket_reference)
+
+        except KeyError as e:
+            logger.error('Error getting pdf')
 
         return ticket_reference
 
@@ -114,3 +128,6 @@ class FixrAccount:
                 return True
 
         return False
+
+    def get_pdf_url(self, ticket_reference):
+        pass

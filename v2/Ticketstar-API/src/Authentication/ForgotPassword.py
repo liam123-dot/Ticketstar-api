@@ -113,6 +113,14 @@ def lambda_handler(event, body):
                     'reason': 'UserNotFoundException'
                 })
             }
+        elif error_code == 'LimitExceededException':
+            return {
+                'statusCode': 400,
+                'body': json.dumps({
+                    'message': 'Retry limit exceeded, please try again later',
+                    'reason': 'LimitExceededException'
+                })
+            }
         else:
             return {
                 'statusCode': 500,
