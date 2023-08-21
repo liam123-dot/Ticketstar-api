@@ -59,7 +59,7 @@ def lambda_handler(event, context):
 
             stripe.api_key = secret_key
 
-            if len(results) == 0:
+            if len(results) == 0 or results[0][0] is None:
                 new_customer = stripe.Customer.create(
                     name=user_name,
                     email=user_email,

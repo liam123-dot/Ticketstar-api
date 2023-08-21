@@ -18,69 +18,71 @@ logger.setLevel(logging.INFO)
 
 def lambda_handler(event, context):
 
-    try:
+    with Database() as database:
 
-        path_parameters = event['pathParameters']
-        ask_id = path_parameters['ask_id']
+        try:
 
-        body = json.loads(event['body'])
-        user_id = body['user_id']
+            path_parameters = event['pathParameters']
+            ask_id = path_parameters['ask_id']
 
-        authorized = confirm_ticket_ownership(user_id, ask_id)
+            body = json.loads(event['body'])
+            user_id = body['user_id']
 
-        if not authorized:
+            authorized = confirm_ticket_ownership(database, user_id, ask_id)
+
+            if not authorized:
+                return {
+                    'statusCode': 400,
+                    'body': json.dumps({
+                        'message': 'Unauthorized',
+                        'reason': 'TicketNoLongerAvailable'
+                    })
+                }
+
+        except KeyError as e:
             return {
                 'statusCode': 400,
                 'body': json.dumps({
-                    'message': 'Unauthorized',
-                    'reason': 'TicketNoLongerAvailable'
+                    'message': 'Invalid parameters: ' + str(e)
                 })
             }
 
-    except KeyError as e:
+        try:
+
+            transfer_url = get_transfer_url_from_ask(database, ask_id)
+
+        except DatabaseException as e:
+            logger.error("Database exception: %s", e)
+            return {
+                'statusCode': 500,
+                'body': json.dumps({
+                    'message': 'Internal Server Error'
+                })
+            }
+        except FixrApiException as e:
+            logger.error("Fixr API exception: %s", e)
+            return {
+                'statusCode': 500,
+                'body': json.dumps({
+                    'message': 'Internal Server Error'
+                })
+            }
+
         return {
-            'statusCode': 400,
+            'statusCode': 200,
             'body': json.dumps({
-                'message': 'Invalid parameters: ' + str(e)
+                'transfer_url': transfer_url
             })
         }
 
-    try:
 
-        transfer_url = get_transfer_url_from_ask(ask_id)
-
-    except DatabaseException as e:
-        logger.error("Database exception: %s", e)
-        return {
-            'statusCode': 500,
-            'body': json.dumps({
-                'message': 'Internal Server Error'
-            })
-        }
-    except FixrApiException as e:
-        logger.error("Fixr API exception: %s", e)
-        return {
-            'statusCode': 500,
-            'body': json.dumps({
-                'message': 'Internal Server Error'
-            })
-        }
-
-    return {
-        'statusCode': 200,
-        'body': json.dumps({
-            'transfer_url': transfer_url
-        })
-    }
-
-
-def get_transfer_url_from_ask(ask_id):
-    real_ticket = get_real_ticket_by_ask_id(ask_id)
+def get_transfer_url_from_ask(database, ask_id):
+    real_ticket = get_real_ticket_by_ask_id(database, ask_id)
 
     account_id = real_ticket[0]
     ticket_reference = real_ticket[1]
 
-    account_details = get_fixr_account_details_from_account_id(account_id)[0]
+    account_details = get_fixr_account_details_from_account_id(database, account_id)[0]
 
     fixr_username = account_details[0]
     fixr_password = account_details[1]
@@ -90,12 +92,11 @@ def get_transfer_url_from_ask(ask_id):
     return transfer_url
 
 
-def confirm_ticket_ownership(user_id, ask_id):
+def confirm_ticket_ownership(database, user_id, ask_id):
 
-    with Database() as database:
-        sql = "SELECT fulfilled, seller_user_id, buyer_user_id, listed FROM asks WHERE ask_id=%s"
+    sql = "SELECT fulfilled, seller_user_id, buyer_user_id, listed FROM asks WHERE ask_id=%s"
 
-        results = database.execute_select_query(sql, (ask_id, ))[0]
+    results = database.execute_select_query(sql, (ask_id, ))[0]
 
     fulfilled = results[0] == b'\x01'
     seller_user_id = results[1]

@@ -15,7 +15,7 @@ def lambda_handler(event, context):
     try:
 
         query_string_parameters = event['queryStringParameters']
-        if 'ask_id' in query_string_parameters:
+        if query_string_parameters is not None and 'ask_id' in query_string_parameters:
             ask_id = query_string_parameters['ask_id']
             return {
                 'statusCode': 200,

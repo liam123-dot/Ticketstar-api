@@ -587,6 +587,23 @@ Resources:
             Path: /metrics/startsession
             Method: post
 
+  GetDailyActiveUsersFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: GetDailyActiveUsers.lambda_handler
+      CodeUri: src/Metrics/
+      Layers:
+        - !Ref DatabaseLayer
+      Policies:
+        - AWSLambdaBasicExecutionRole
+        - SecretsManagerReadWrite
+      Events:
+        TicketstarApi:
+          Type: Api
+          Properties:
+            Path: /metrics/GetDailyActiveUsers
+            Method: post
+
   ExceptionsLayer:
     Type: AWS::Serverless::LayerVersion
     Properties:
