@@ -48,6 +48,8 @@ class FixrAccount:
 
         verify_transfer_url = "https://api.fixr.co/api/v2/app/transfer-ticket/" + code
 
+        # ---------------- nothing new between these lines ------------------------
+
         response = self.session.post(verify_transfer_url, headers=verify_transfer_headers, json={})
 
         if not response.ok:
@@ -60,9 +62,13 @@ class FixrAccount:
 
         data = response.json()
 
+        # logger.info('claim_ticket_response' + data)
+
         ticket_reference = data['data']['transfer_code']['transferred_ticket_reference']
 
         logger.info('account: ' + self.username + 'claimed ticket, ticket_reference: ' + ticket_reference)
+
+        # --------------------------------------------------------------------
 
         try:
             pdf_url = data['data']['ticket_reference']['pdf']

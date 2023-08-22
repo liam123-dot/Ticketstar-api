@@ -116,7 +116,7 @@ def get_listing_info(seller_user_id, filter_option=None):
                 ticket_reference = results[2]
 
                 if ownership:
-                    account_details = get_fixr_account_details_from_account_id(account_id)[0]
+                    account_details = get_fixr_account_details_from_account_id(database, account_id)[0]
                     fixr_username = account_details[0]
                     fixr_password = account_details[1]
 

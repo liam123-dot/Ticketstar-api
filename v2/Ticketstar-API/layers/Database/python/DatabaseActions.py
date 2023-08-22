@@ -60,8 +60,8 @@ def create_ticket_id(database, event, ticket):
     """
 
     ticket_values = (
-        ticket['fixr_id'],
-        event['fixr_id'],
+        ticket['fixr_ticket_id'],
+        event['fixr_event_id'],
         ticket['name'],
         event['name'],
         event['venue']['name'],
@@ -399,7 +399,7 @@ def get_fixr_account_details_from_real_ticket_id(database, real_ticket_id):
         results = database.execute_select_query(sql, (real_ticket_id, ))
 
         account_id = results[0][0]
-        return account_id, get_fixr_account_details_from_account_id(account_id)
+        return account_id, get_fixr_account_details_from_account_id(database, account_id)
     except Exception as e:
         raise DatabaseException(e)
 

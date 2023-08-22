@@ -127,7 +127,7 @@ def get_event_info(event_id, user_id):
             for event_parameter in event_parameters_to_pull:
                 try:
                     if event_parameter == 'id':
-                        event['fixr_id'] = data['id']
+                        event['fixr_event_id'] = data['id']
                     elif event_parameter == 'image_url':
                         event['image_url'] = data['event_image']
                     else:
@@ -146,7 +146,7 @@ def get_event_info(event_id, user_id):
                     try:
 
                         if parameter == 'id':
-                            ticket_info['fixr_id'] = ticket['id']
+                            ticket_info['fixr_ticket_id'] = ticket['id']
                         else:
                             ticket_info[parameter] = ticket[parameter]
 
