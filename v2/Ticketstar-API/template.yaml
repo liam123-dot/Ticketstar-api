@@ -18,6 +18,7 @@ Resources:
       Handler: SignUp.lambda_handler
       Layers:
         - !Ref ExceptionsLayer
+        - !Ref DatabaseLayer
       Policies:
         - AWSLambdaBasicExecutionRole
         - AmazonCognitoPowerUser
@@ -153,6 +154,22 @@ Resources:
             Path: /authentication/resendconfirmationcode
             Method: post
 
+  CheckAccountEnabledFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/Authentication/
+      Handler: CheckAccountEnabled.lambda_handler
+      Policies:
+        - AWSLambdaBasicExecutionRole
+        - SecretsManagerReadWrite
+        - AmazonCognitoPowerUser
+      Events:
+        TicketstarApi:
+          Type: Api
+          Properties:
+            Path: /authentication/CheckAccountEnabled
+            Method: post
+
   GetEventsFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -169,7 +186,7 @@ Resources:
           Type: Api
           Properties:
             Path: /search/events
-            Method: get
+            Method: post
       MemorySize: 750
 
   GetVenuesFunction:
@@ -179,8 +196,10 @@ Resources:
       Handler: SearchLambdas.get_venues
       Layers:
         - !Ref ExceptionsLayer
+        - !Ref DatabaseLayer
       Policies:
         - AWSLambdaBasicExecutionRole
+        - SecretsManagerReadWrite
       Events:
         TicketstarApi:
           Type: Api
@@ -195,8 +214,10 @@ Resources:
       Handler: SearchLambdas.get_organisers
       Layers:
         - !Ref ExceptionsLayer
+        - !Ref DatabaseLayer
       Policies:
         - AWSLambdaBasicExecutionRole
+        - SecretsManagerReadWrite
       Events:
         TicketstarApi:
           Type: Api
@@ -260,6 +281,23 @@ Resources:
             Method: get
       MemorySize: 1024
 
+  GetPopularEventsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: GetPopularEvents.lambda_handler
+      CodeUri: src/Search/
+      Layers:
+        - !Ref DatabaseLayer
+      Policies:
+        - AWSLambdaBasicExecutionRole
+        - SecretsManagerReadWrite
+      Events:
+        TicketstarApi:
+          Type: Api
+          Properties:
+            Path: /search/GetPopularEvents
+            Method: post
+
   ReserveListingFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -289,6 +327,8 @@ Resources:
       Policies:
         - AWSLambdaBasicExecutionRole
         - SecretsManagerReadWrite
+        - AmazonCognitoPowerUser
+        - AmazonSESFullAccess
       Events:
         TicketstarApi:
           Type: Api
@@ -534,41 +574,27 @@ Resources:
   PdfBucket:
     Type: AWS::S3::Bucket
 
-  UploadPdfFunction:
+  GetPDFLinkFunction:
     Type: AWS::Serverless::Function
     Properties:
-      Handler: upload_pdf.lambda_handler
-      CodeUri: src/utils  # Assuming Lambda code is in the root directory with the template
-      Description: Uploads a PDF to S3.
-      Environment:
-        Variables:
-          BUCKET_NAME: !Ref PdfBucket
-      Policies:
-        - AmazonS3FullAccess
-      Events:
-        TicketstarApi:
-          Type: Api
-          Properties:
-            Path: /pdf/upload
-            Method: post
-
-  RetrievePdfFunction:
-    Type: AWS::Serverless::Function
-    Properties:
-      Handler: retrieve_pdf.lambda_handler
-      CodeUri: src/utils
+      Handler: GetPDFLink.lambda_handler
+      CodeUri: src/Transfer
       Description: Retrieves a PDF URL from S3.
       Environment:
         Variables:
           BUCKET_NAME: !Ref PdfBucket
+      Layers:
+        - !Ref DatabaseLayer
       Policies:
+        - AWSLambdaBasicExecutionRole
+        - SecretsManagerReadWrite
         - AmazonS3FullAccess
       Events:
         TicketstarApi:
           Type: Api
           Properties:
-            Path: /pdf/download
-            Method: get
+            Path: /pdf/GetLink
+            Method: post
 
   LogAppOpenFunction:
     Type: AWS::Serverless::Function
@@ -587,10 +613,10 @@ Resources:
             Path: /metrics/startsession
             Method: post
 
-  GetDailyActiveUsersFunction:
+  GetActiveUsersFunction:
     Type: AWS::Serverless::Function
     Properties:
-      Handler: GetDailyActiveUsers.lambda_handler
+      Handler: GetActiveUsers.lambda_handler
       CodeUri: src/Metrics/
       Layers:
         - !Ref DatabaseLayer
@@ -601,7 +627,43 @@ Resources:
         TicketstarApi:
           Type: Api
           Properties:
-            Path: /metrics/GetDailyActiveUsers
+            Path: /metrics/GetActiveUsers
+            Method: post
+
+  GetSignUpsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: GetSignUps.lambda_handler
+      CodeUri: src/Metrics/
+      Layers:
+        - !Ref DatabaseLayer
+      Policies:
+        - AWSLambdaBasicExecutionRole
+        - SecretsManagerReadWrite
+      Events:
+        TicketstarApi:
+          Type: Api
+          Properties:
+            Path: /metrics/GetSignUps
+            Method: post
+
+  AdminGetUserFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/Cognito/
+      Handler: AdminGetUser.lambda_handler
+      Layers:
+        - !Ref ExceptionsLayer
+        - !Ref DatabaseLayer
+      Policies:
+        - AWSLambdaBasicExecutionRole
+        - AmazonCognitoPowerUser
+        - SecretsManagerReadWrite
+      Events:
+        TicketstarApi:
+          Type: Api
+          Properties:
+            Path: /Cognito/AdminGetUser
             Method: post
 
   ExceptionsLayer:
@@ -631,5 +693,5 @@ Resources:
 
 Outputs:
   TicketstarApi:
-    Description: "API Gateway endpoint URL for Prod stage for ticketstar function"
+    Description: "API Gateway endpoint URL for Prod stage for ticketstar"
     Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/"

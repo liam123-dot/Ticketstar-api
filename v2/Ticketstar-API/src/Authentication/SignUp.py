@@ -35,8 +35,8 @@ Response from cognito:
 from botocore.exceptions import ClientError
 import boto3
 import json
-import os
 import logging
+from DatabaseConnector import Database
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -61,6 +61,8 @@ def lambda_handler(event, context):
         password = body['password']
         first_name = body['firstName']
         last_name = body['lastName']
+        terms_consent = body['hasTermsConsent']
+        marketing_consent = body['hasMarketingConsent']
     except (KeyError, json.JSONDecodeError) as e:
         logger.error('Error processing body. Error: %s, with event: %s', e, event)  # log the error
         return {
@@ -95,6 +97,9 @@ def lambda_handler(event, context):
 
     try:
         confirmation_method, destination = submit_cognito_sign_up(email, password, first_name, last_name)
+        with Database() as database:
+            user_id = log_sign_up(database, email)
+            submit_agreements(database, user_id, marketing_consent, terms_consent)
 
         return {
             'statusCode': 200,
@@ -186,3 +191,33 @@ def submit_cognito_sign_up(email, password, first_name, last_name):
     destination = delivery_details['Destination']
 
     return confirmation_method, destination
+
+
+def log_sign_up(database, email):
+
+    response = cognito.list_users(
+        UserPoolId=USER_POOL_ID,
+        Filter="email=\"" + email + "\""
+    )
+
+    try:
+        user_id = response['Users'][0]['Username']
+    except (KeyError, IndexError) as e:
+        logger.error('error logging sign up: ' + str(e))
+        return
+    except Exception as e:
+        logger.error('error logging sign up: ' + str(e))
+        return
+
+    import time
+
+    sql = "INSERT INTO SignUps(user_id, time) VALUES (%s, %s)"
+    current_time = time.time()
+    database.execute_insert_query(sql, (user_id, current_time))
+
+    return user_id
+
+
+def submit_agreements(database, user_id, marketingConsent, termsConsent):
+    sql = "INSERT INTO Agreements(user_id, MarketingConsent, TermsConditions) VALUES (%s, %s, %s)"
+    database.execute_insert_query(sql, (user_id, marketingConsent, termsConsent))

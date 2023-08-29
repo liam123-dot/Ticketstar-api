@@ -33,6 +33,7 @@ each tickets object should already have assessed what that user should display:
 import json
 import random
 import time
+from DatabaseActions import check_event_has_tickets
 
 from FixrExceptions import FixrApiException
 
@@ -43,12 +44,18 @@ logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
 
-def search(search_query, limit=None, offset=None):
+def search(search_query, user_id, limit=None, offset=None):
     if limit is None:
-        limit = 6
+        limit = 4
     if offset is None:
         offset = 0
     url = f"https://api.fixr.co/search/events?query={search_query}&limit={limit}&offset={offset}"
+
+    from datetime import datetime
+
+    def to_epoch(time_string):
+        dt_object = datetime.strptime(time_string, '%Y-%m-%dT%H:%M:%SZ')
+        return int(dt_object.timestamp())
 
     headers = {
         "Accept": "application/json; version=3.0"
@@ -76,13 +83,11 @@ def search(search_query, limit=None, offset=None):
                     'fixr_id': event['id'],
                     'name': event['name'],
                     'image_url': event['image_url'],
-                    'open_time': event['opens_at'],
-                    'close_time': event['closes_at'],
+                    'open_time': to_epoch(event['opens_at']),
+                    'close_time': to_epoch(event['closes_at']),
                     'venue': event['venue']['name'] if event.get('venue') else 'No venue attached',
-                    'cheapest_ticket': event['cheapest_ticket'],
                     # will be used to verify whether tickets are available. i.e. null if not
-                    'sold_out': event['is_sold_out'],
-                    'has_listings': check_event_has_tickets(database, event['id'])
+                    'has_listings': check_event_has_tickets(database, event['id'], user_id)
                 })
 
         events = sorted(events, key=lambda d: d['open_time'])
@@ -261,24 +266,30 @@ def filter_ticket_asks(asks, user_id):
                 ticket['reserved'] = False
                 cheapest_ticket = {
                     'ask_id': ticket['ask_id'],
-                    'cheapest': index == 0,
                     'ask_price': ticket['price'],
                     'purchasable': ticket['seller_user_id'] != user_id
                 }
             elif ticket['buyer_user_id'] == user_id:
                 cheapest_ticket = {
                     'ask_id': ticket['ask_id'],
-                    'cheapest': index == 0,
                     'ask_price': ticket['price'],
+                    'purchasable': True
                 }
                 break
 
         elif user_id != ticket['seller_user_id'] and not ticket['reserved']:
             cheapest_ticket = {
                 'ask_id': ticket['ask_id'],
-                'cheapest': index == 0,
                 'ask_price': ticket['price'],
                 'purchasable': ticket['seller_user_id'] != user_id
+            }
+            break
+
+        elif user_id == ticket['seller_user_id'] and not ticket['reserved']:
+            cheapest_ticket = {
+                'ask_id': ticket['ask_id'],
+                'ask_price': ticket['price'],
+                'purchasable': False
             }
             break
 
@@ -292,21 +303,3 @@ def filter_ticket_asks(asks, user_id):
     else:
         return cheapest_ticket
 
-
-def check_event_has_tickets(database, event_id):
-    import time
-
-    current_time = time.time()
-    sql = """SELECT a.ticket_id
-            FROM asks a
-            WHERE a.ticket_id IN (
-                SELECT t.ticket_id 
-                FROM tickets t
-                WHERE t.fixr_event_id = %s
-            ) 
-            AND a.fulfilled=0 
-            AND a.listed=1 
-            AND (a.reserved=0 OR (a.reserved=1 AND a.reserve_timeout < %s));
-            """
-    results = database.execute_select_query(sql, (event_id, current_time))
-    return len(results) > 0

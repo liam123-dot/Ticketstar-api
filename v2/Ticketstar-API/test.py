@@ -1,13 +1,6 @@
-from datetime import datetime
-import pytz
+def my_round(value, decimal_places=2):
+    offset = 10 ** -decimal_places / 2
+    return round(value + offset, decimal_places)
 
-# Create a datetime object for the given date and time in London
-london_timezone = pytz.timezone('Europe/London')
-dt = london_timezone.localize(datetime(2023, 8, 20, 11, 0))
 
-# Convert to epoch time
-epoch_time = int(dt.timestamp())
-
-human_readable_time = datetime.fromtimestamp(epoch_time).strftime('%Y-%m-%d %H:%M:%S')
-
-print(human_readable_time)
+print(my_round((3 * 0.015) + 0.2))

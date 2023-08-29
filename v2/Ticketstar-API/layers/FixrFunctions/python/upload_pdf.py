@@ -9,10 +9,10 @@ BUCKET_NAME = 'api-2-pdfbucket-1e7y72t39nzqk'
 
 def upload_pdf(pdf_url, ticket_reference):
 
-    pdf_name = 'pdf-' + str(ticket_reference)  # Extracts file name from the URL
+    pdf_name = 'pdf-' + str(ticket_reference) + '.pdf' # Extracts file name from the URL
 
     response = requests.get(pdf_url, stream=True)
-    s3.put_object(Bucket=BUCKET_NAME, Key=pdf_name, Body=response.content)
+    s3.put_object(Bucket=BUCKET_NAME, Key=pdf_name, Body=response.content, ContentDisposition="inline", ContentType="application/pdf")
 
     return {
         'statusCode': '200',

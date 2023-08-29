@@ -100,10 +100,13 @@ class FixrAccount:
     def get_transfer_url(self, ticket_reference):
         ticket_data = self.get_ticket_with_reference(ticket_reference)
 
+        logger.info(ticket_data)
+
         if not ticket_data['is_transferable']:
             transfer_url = ticket_data['transfer_url']
             if transfer_url is not None:
                 return transfer_url
+
         else:
             url = f"https://api.fixr.co/api/v2/app/booking/{ticket_reference}/transfer-code"
             headers = {

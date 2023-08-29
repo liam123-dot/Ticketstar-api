@@ -104,7 +104,7 @@ def get_organiser_events(build_id, organiser_id=None, slug=None):
     response = requests.get(url, headers=headers)
 
     if not response.ok:
-        logger.error("Response error from fixr organiser_has_event. Response code: %s, Response text: %s", response.status_code,
+        logger.error("Response error from fixr organiser_has_event. build id: %s, organiser_id: %s, slug: %s, Response code: %s, Response text: %s", build_id, organiser_id, slug, response.status_code,
                      response.text)
 
         raise FixrApiException("Invalid response from fixr api")
@@ -129,7 +129,7 @@ def get_organiser_events(build_id, organiser_id=None, slug=None):
 
 def search(query, limit=None, offset=None):
     if limit is None:
-        limit = 6
+        limit = 4
     if offset is None:
         offset = 0
     organisers_url = f"https://api.fixr.co/search/organisers?query={query}&limit={limit}&offset={offset}&popularity__boost=0"

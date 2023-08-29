@@ -51,6 +51,14 @@ def lambda_handler(event, context):
 
             transfer_url = get_transfer_url_from_ask(database, ask_id)
 
+            if transfer_url is None:
+                return {
+                    'statusCode': 200,
+                    'body': json.dumps({
+                        'transfer_url': None
+                    })
+                }
+
         except DatabaseException as e:
             logger.error("Database exception: %s", e)
             return {
@@ -88,6 +96,9 @@ def get_transfer_url_from_ask(database, ask_id):
     fixr_password = account_details[1]
 
     transfer_url = get_transfer_url(fixr_username, fixr_password, ticket_reference)
+
+    if transfer_url is None:
+        pass
 
     return transfer_url
 

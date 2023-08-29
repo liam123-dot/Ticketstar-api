@@ -143,6 +143,12 @@ def create_stripe_account(first_name, last_name, email):
             "support_url": None,
             "url": "www.ticketstar.uk"
         },
+        settings={
+            "payouts": {
+                "statement_descriptor": "TICKETSTAR"
+            }
+        }
     )
+    print(account)
 
     return account

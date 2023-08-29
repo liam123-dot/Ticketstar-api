@@ -11,6 +11,24 @@ import logging
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
+def check_event_has_tickets(database, event_id, buyer_user_ud):
+    import time
+
+    current_time = time.time()
+    sql = """SELECT a.ticket_id
+            FROM asks a
+            WHERE a.ticket_id IN (
+                SELECT t.ticket_id 
+                FROM tickets t
+                WHERE t.fixr_event_id = %s
+            ) 
+            AND a.fulfilled=0 
+            AND a.listed=1 
+            AND (a.reserved=0 OR (a.reserved=1 AND (a.reserve_timeout < %s OR a.buyer_user_id=%s)));
+            """
+    results = database.execute_select_query(sql, (event_id, current_time, buyer_user_ud))
+    return len(results) > 0
+
 
 def get_ticket_id(database, fixr_event_id, fixr_ticket_id):
 

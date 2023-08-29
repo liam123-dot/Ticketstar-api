@@ -119,6 +119,10 @@ def lambda_handler(event, context):
         }
 
 
+def my_round(value, decimal_places=2):
+    offset = 10 ** -decimal_places / 2
+    return round(value + offset, decimal_places)
+
 def calculate_application_fee(price, ask_id):
     # takes the price in pennies
     from GetFees import get_fees_by_ask_id
@@ -130,11 +134,17 @@ def calculate_application_fee(price, ask_id):
     platform_fixed_fee = fees['platform_fixed_fee'] # pennies
     platform_variable_fee = fees['platform_variable_fee'] # percentage as decimal
 
-    p_goal = (price * (1 - stripe_variable_fee)) - stripe_fixed_fee
+    p_goal = int((price * (1 - stripe_variable_fee)) - stripe_fixed_fee)
 
-    stripe_fee = round(price - p_goal, 2)
+    logger.info('p_goal: ' + str(p_goal))
+
+    stripe_fee = my_round(price - p_goal, 2)
+
+    logger.info('stripe_fee: ' + str(stripe_fee))
 
     platform_fee = round(price * platform_variable_fee, 2) + platform_fixed_fee
+
+    logger.info('platform_fee: ' + str(platform_fee))
 
     return stripe_fee + platform_fee
 

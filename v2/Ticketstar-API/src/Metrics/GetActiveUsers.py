@@ -3,11 +3,13 @@ from DatabaseConnector import Database
 from datetime import datetime, timedelta
 import time
 
+
 def convert_to_epoch(year, month, day, hour=0, minute=0, second=0):
     """Converts a date to epoch timestamp."""
     dt = datetime(year, month, day, hour, minute, second)
     epoch_time = int(time.mktime(dt.timetuple()))
     return epoch_time
+
 
 def get_interval_seconds(count_by):
     if count_by == "hourly":
@@ -19,7 +21,8 @@ def get_interval_seconds(count_by):
     elif count_by == "monthly":
         return 2592000  # 30 days in seconds
 
-def get_unique_users_for_interval(database, start_date_epoch, end_date_epoch, interval_seconds):
+
+def get_unique_users_for_interval(database, start_date_epoch, end_date_epoch, interval_seconds, show_user_ids):
     sql = """
     SELECT open_time DIV %s AS interval_time,
            COUNT(DISTINCT user_id) AS user_count,
@@ -35,15 +38,34 @@ def get_unique_users_for_interval(database, start_date_epoch, end_date_epoch, in
     for row in results:
         interval_start = row[0] * interval_seconds
         count = row[1]
-        user_ids = row[2].split(',')
         human_readable_time = datetime.fromtimestamp(interval_start).strftime('%Y-%m-%d %H:%M:%S')
         result_data[str(interval_start)] = {
             "count": count,
             "start_time_human_readable": human_readable_time,
-            "user_ids": user_ids
         }
+        if show_user_ids:
+            user_ids = row[2].split(',')
+            result_data[str(interval_start)]['user_ids'] = user_ids
 
     return result_data
+
+
+from collections import OrderedDict
+
+
+def fill_missing_intervals(result_data, epoch_start_time, epoch_end_time, interval_seconds):
+    ordered_data = OrderedDict()
+    interval_time = epoch_start_time
+    while interval_time < epoch_end_time:
+        human_readable_time = datetime.fromtimestamp(interval_time).strftime('%Y-%m-%d %H:%M:%S')
+        ordered_data[str(interval_time)] = result_data.get(str(interval_time), {
+            "count": 0,
+            "start_time_human_readable": human_readable_time,
+        })
+        interval_time += interval_seconds
+
+    return ordered_data
+
 
 def lambda_handler(event, context):
     try:
@@ -52,6 +74,7 @@ def lambda_handler(event, context):
         from_date = body['from_date']
         to_date = body['to_date']
         show_none = body.get('show_none', False)  # Default to False if not provided
+        show_user_ids = body.get('show_user_ids', False)
 
         epoch_start_time = convert_to_epoch(from_date['year'], from_date['month'], from_date['day'])
         epoch_end_time = convert_to_epoch(to_date['year'], to_date['month'], to_date['day'])
@@ -67,12 +90,15 @@ def lambda_handler(event, context):
         interval_seconds = get_interval_seconds(count_by)
 
         with Database() as database:
-            result_data = get_unique_users_for_interval(database, epoch_start_time, epoch_end_time, interval_seconds)
+            result_data = get_unique_users_for_interval(database, epoch_start_time, epoch_end_time, interval_seconds,
+                                                        show_user_ids)
 
         # Filter out the intervals with zero counts if show_none is False
         if not show_none:
             result_data = {key: val for key, val in result_data.items() if val["count"] > 0}
-
+        else:
+            result_data = fill_missing_intervals(result_data, epoch_start_time, epoch_end_time,
+                                                                       interval_seconds)
     except KeyError as e:
         return {
             'statusCode': 400,
@@ -83,6 +109,11 @@ def lambda_handler(event, context):
 
     return {
         'statusCode': 200,
+        "headers": {
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Headers": "Content-Type",
+            "Access-Control-Allow-Methods": "OPTIONS,POST,GET"
+        },
         'body': json.dumps({
             'unique_users_counts': result_data
         })

@@ -9,7 +9,7 @@ from Venues import search as venue_search
 from Organisers import search as organiser_search
 
 
-def generic_get(search_function, entity_type, event, context):
+def generic_get(search_function, entity_type, event, context, user_id=None):
     try:
         query_string = event['queryStringParameters']
         query = query_string['query']
@@ -37,7 +37,10 @@ def generic_get(search_function, entity_type, event, context):
     limit, offset = query_string.get('limit'), query_string.get('offset')
 
     try:
-        entities = search_function(query, limit=limit, offset=offset)
+        if user_id is None:
+            entities = search_function(query, limit=limit, offset=offset)
+        else:
+            entities = search_function(query, user_id, limit=limit, offset=offset)
 
     except Exception as e:
         logger.error(f"Error searching for {entity_type}, error: {e}")
@@ -60,7 +63,19 @@ def generic_get(search_function, entity_type, event, context):
 
 
 def get_events(event, context):
-    return generic_get(event_search, 'events', event, context)
+
+    try:
+        body = json.loads(event['body'])
+        user_id = body['user_id']
+    except KeyError as e:
+        return {
+            'statusCode': 400,
+            'body': json.dumps({
+                'message': 'Invalid parameter: ' + str(e)
+            })
+        }
+
+    return generic_get(event_search, 'events', event, context, user_id=user_id)
 
 
 def get_venues(event, context):
